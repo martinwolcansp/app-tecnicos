@@ -1,0 +1,318 @@
+/* Estilos compartidos de login / panel admin / wizard técnico.
+   Reutiliza las variables de color de index.css (soportan modo oscuro). */
+
+.page-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text);
+}
+
+/* ---------- Login ---------- */
+
+.auth-shell {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 32px 28px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  text-align: left;
+}
+
+.auth-card h1 {
+  font-size: 22px;
+  margin: 0;
+  text-align: left;
+}
+
+/* ---------- Panel de administrador (sidebar + contenido) ---------- */
+
+.app-shell {
+  display: flex;
+  min-height: 100svh;
+  text-align: left;
+}
+
+.app-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
+  gap: 24px;
+}
+
+.app-sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+}
+
+.app-nav a {
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.app-nav a.active {
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.app-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.app-content {
+  flex-grow: 1;
+  padding: 28px 32px;
+  text-align: left;
+  max-width: 960px;
+}
+
+/* ---------- Panel del técnico ---------- */
+
+.tecnico-shell {
+  min-height: 100svh;
+  text-align: left;
+}
+
+.tecnico-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tecnico-header-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.tecnico-content {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+/* ---------- Elementos compartidos ---------- */
+
+.badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.badge-admin {
+  color: var(--accent);
+  background: var(--accent-bg);
+  align-self: flex-start;
+}
+
+.badge-publicado {
+  color: #1f9d63;
+  background: rgba(31, 157, 99, 0.12);
+}
+
+.badge-borrador,
+.badge-nuevo {
+  color: #b8860b;
+  background: rgba(184, 134, 11, 0.12);
+}
+
+.badge-archivado,
+.badge-rechazado {
+  color: #6b6375;
+  background: rgba(107, 99, 117, 0.12);
+}
+
+.badge-en_revision {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.badge-aprobado {
+  color: #1f9d63;
+  background: rgba(31, 157, 99, 0.12);
+}
+
+.alert {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  margin: 10px 0;
+}
+
+.alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #7f1d1d;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  text-align: left;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.card-link {
+  text-decoration: none;
+  color: var(--text-h);
+  display: block;
+}
+
+.card-link:hover {
+  border-color: var(--accent-border);
+}
+
+.card-link p {
+  color: var(--text);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0;
+}
+
+.campo-titulo {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.requerido {
+  color: #b00020;
+}
+
+.campo input[type='text'],
+.campo input[type='email'],
+.campo input[type='tel'],
+.campo input[type='number'],
+.campo input[type='date'],
+.campo input[type='password'],
+.campo textarea {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: transparent;
+  color: var(--text-h);
+}
+
+.campo textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.opciones-radio,
+.opciones-check {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.opciones-radio label,
+.opciones-check label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.campo-foto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.hint {
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.confirmacion {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.codigo-seguimiento {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: var(--code-bg);
+  border-radius: 10px;
+  padding: 14px 20px;
+  display: inline-block;
+  margin: 16px 0 28px;
+}

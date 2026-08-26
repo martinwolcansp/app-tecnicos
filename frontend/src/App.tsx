@@ -1,125 +1,63 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabaseClient'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider, useAuth } from './lib/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { Login } from './pages/Login'
+import { AdminLayout } from './pages/admin/AdminLayout'
+import { AdminFormularios } from './pages/admin/AdminFormularios'
+import { AdminEnvios } from './pages/admin/AdminEnvios'
+import { TecnicoLayout } from './pages/tecnico/TecnicoLayout'
+import { TecnicoFormularios } from './pages/tecnico/TecnicoFormularios'
+import { TecnicoWizard } from './pages/tecnico/TecnicoWizard'
 import './App.css'
+import './styles/app.css'
 
-type Form = {
-  id: string
-  nombre: string
-  estado: string
+/** "/" no renderiza nada propio: solo decide a dónde mandar según el rol. */
+function Inicio() {
+  const { loading, profile } = useAuth()
+
+  if (loading) return <div className="page-loading">Cargando…</div>
+  if (!profile) return <Navigate to="/login" replace />
+  if (profile.rol === 'tecnico') return <Navigate to="/tecnico" replace />
+  return <Navigate to="/admin/formularios" replace />
 }
 
-type Question = {
-  id: string
-  codigo: string
-  seccion: string | null
-  texto_pregunta: string
-  tipo_campo: string
-}
-
-/**
- * Pantalla de verificación de entorno local (Etapa 1).
- *
- * No es el wizard final (eso es Etapa 3) — solo confirma que la app React
- * puede leer los formularios y preguntas cargados por supabase/seed.sql
- * contra el Supabase local levantado con `supabase start`.
- */
 function App() {
-  const [forms, setForms] = useState<Form[]>([])
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function cargar() {
-      const { data: formsData, error: formsError } = await supabase
-        .from('forms')
-        .select('id, nombre, estado')
-
-      if (formsError) {
-        setError(formsError.message)
-        setLoading(false)
-        return
-      }
-
-      setForms(formsData ?? [])
-
-      if (formsData && formsData.length > 0) {
-        const { data: questionsData, error: questionsError } = await supabase
-          .from('form_questions')
-          .select('id, codigo, seccion, texto_pregunta, tipo_campo')
-          .eq('form_id', formsData[0].id)
-          .order('orden')
-
-        if (questionsError) {
-          setError(questionsError.message)
-        } else {
-          setQuestions(questionsData ?? [])
-        }
-      }
-
-      setLoading(false)
-    }
-
-    cargar()
-  }, [])
-
   return (
-    <div className="page">
-      <h1>App Técnicos — entorno local</h1>
-      <p className="subtitle">
-        Verificación de conexión: React ↔ Supabase local ↔ formulario piloto
-        sembrado por <code>supabase/seed.sql</code>.
-      </p>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Inicio />} />
 
-      {loading && <p>Consultando Supabase local…</p>}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute roles={['administrador', 'superadministrador']}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="formularios" replace />} />
+            <Route path="formularios" element={<AdminFormularios />} />
+            <Route path="envios" element={<AdminEnvios />} />
+          </Route>
 
-      {error && (
-        <div className="error">
-          <strong>No se pudo conectar con Supabase.</strong>
-          <p>{error}</p>
-          <p>
-            Revisá que corriste <code>supabase start</code> y que copiaste las
-            credenciales a <code>frontend/.env.local</code> (ver{' '}
-            <code>.env.example</code>).
-          </p>
-        </div>
-      )}
+          <Route
+            path="/tecnico"
+            element={
+              <ProtectedRoute roles={['tecnico']}>
+                <TecnicoLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<TecnicoFormularios />} />
+            <Route path="formulario/:formId" element={<TecnicoWizard />} />
+          </Route>
 
-      {!loading && !error && (
-        <>
-          <h2>Formularios publicados</h2>
-          <ul>
-            {forms.map((f) => (
-              <li key={f.id}>
-                {f.nombre} <span className="badge">{f.estado}</span>
-              </li>
-            ))}
-          </ul>
-
-          <h2>Preguntas del formulario piloto ({questions.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Sección</th>
-                <th>Pregunta</th>
-                <th>Tipo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questions.map((q) => (
-                <tr key={q.id}>
-                  <td>{q.codigo}</td>
-                  <td>{q.seccion}</td>
-                  <td>{q.texto_pregunta}</td>
-                  <td>{q.tipo_campo}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-    </div>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 
