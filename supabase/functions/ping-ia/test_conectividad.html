@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test de conectividad IA — ping-ia</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e0e2e7;
+    --text: #1c1f26;
+    --muted: #6b7280;
+    --accent: #1f3864;
+    --ok-bg: #e8f5e9;
+    --ok-text: #1b5e20;
+    --ok-border: #a5d6a7;
+    --fail-bg: #fdecea;
+    --fail-text: #b00020;
+    --fail-border: #f1a9a4;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px;
+  }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.35rem;
+    margin: 0 0 4px;
+    color: var(--accent);
+  }
+  p.subtitle {
+    color: var(--muted);
+    margin: 0 0 24px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .field {
+    margin-bottom: 14px;
+  }
+  input[type="text"], input[type="password"], textarea {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: #fafafa;
+    font-family: inherit;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 70px;
+  }
+  .key-row {
+    display: flex;
+    gap: 8px;
+  }
+  .key-row input {
+    flex: 1;
+  }
+  .key-row button {
+    flex-shrink: 0;
+  }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 9px 14px;
+  }
+  button.ghost {
+    background: #eef0f3;
+    color: var(--text);
+  }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    width: 100%;
+    padding: 12px;
+    font-size: 0.95rem;
+    margin-top: 4px;
+  }
+  button.primary:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  button.primary:not(:disabled):hover {
+    opacity: 0.92;
+  }
+  .hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .mode-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: 0.88rem;
+  }
+  .mode-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    margin-bottom: 0;
+    cursor: pointer;
+  }
+  #result {
+    display: none;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid;
+    margin-bottom: 20px;
+  }
+  #result.ok {
+    background: var(--ok-bg);
+    color: var(--ok-text);
+    border-color: var(--ok-border);
+  }
+  #result.fail {
+    background: var(--fail-bg);
+    color: var(--fail-text);
+    border-color: var(--fail-border);
+  }
+  #result h2 {
+    font-size: 1rem;
+    margin: 0 0 8px;
+  }
+  #result .row {
+    font-size: 0.88rem;
+    margin-bottom: 3px;
+  }
+  #result .row b {
+    display: inline-block;
+    min-width: 130px;
+  }
+  #result pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.8rem;
+    background: rgba(0,0,0,0.04);
+    padding: 8px;
+    border-radius: 6px;
+    margin-top: 8px;
+    max-height: 200px;
+    overflow: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .dot.ok { background: #2e7d32; }
+  .dot.fail { background: #b00020; }
+  .totals {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  footer {
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* --- Portón de acceso --- */
+  #gate {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  #gate .box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    width: 100%;
+    max-width: 320px;
+  }
+  #gate h2 {
+    font-size: 1.05rem;
+    margin: 0 0 4px;
+    color: var(--accent);
+  }
+  #gate p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  #gateError {
+    color: var(--fail-text);
+    font-size: 0.8rem;
+    margin-top: 8px;
+    display: none;
+  }
+  #appBody {
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <h2>Acceso restringido</h2>
+    <p>Herramienta interna del equipo de APP Técnicos. Ingresá la clave del equipo para continuar.</p>
+    <input type="password" id="gateInput" placeholder="Clave del equipo">
+    <button class="primary" id="gateBtn" type="button" style="margin-top:10px;">Entrar</button>
+    <div id="gateError">Clave incorrecta.</div>
+  </div>
+</div>
+
+<div id="appBody">
+<main>
+  <h1>Test de conectividad IA</h1>
+  <p class="subtitle">
+    Prueba manual del endpoint <code>ping-ia</code> — confirma si el servidor de la empresa
+    (WebInterna) puede hablar con Claude (Anthropic), cuánto tarda y cuánto consume. Requiere
+    estar conectado a la misma red desde la que hoy accedés al servidor (oficina / VPN).
+  </p>
+
+  <div class="panel">
+    <div class="field">
+      <label for="url">URL del servidor Supabase (app-tecnicos)</label>
+      <input type="text" id="url" value="http://supabasekong-dgy7kjodogvogjtcpty3vdri.20.0.20.138.sslip.io">
+      <div class="hint">La sacás de Coolify → servicio Supabase de app-tecnicos → Environment Variables (SERVICE_URL_SUPABASEKONG).</div>
+    </div>
+    <div class="field">
+      <label for="key">Anon key</label>
+      <div class="key-row">
+        <input type="password" id="key" placeholder="Pegá acá la anon key del proyecto">
+        <button class="ghost" id="toggleKey" type="button">Ver</button>
+      </div>
+      <div class="hint">
+        No es un secreto de servidor (está pensada para usarse en clientes), pero igual no la
+        compartas fuera de la empresa. No se guarda en ningún lado: solo vive en esta pestaña
+        mientras la tenés abierta.
+      </div>
+    </div>
+
+    <div class="mode-row">
+      <label><input type="radio" name="mode" value="ping" checked> Ping simple</label>
+      <label><input type="radio" name="mode" value="custom"> Pregunta libre</label>
+    </div>
+
+    <div class="field" id="customField" style="display:none;">
+      <label for="message">Mensaje para Claude</label>
+      <textarea id="message" placeholder="Ej: el técnico respondió 'el dvr no prende, ya cambié la fuente y sigue igual' — ¿cómo lo interpretarías?"></textarea>
+      <div class="hint">Se manda tal cual a Claude Haiku 4.5, sin ningún prompt de sistema agregado — es un sandbox crudo, no el comportamiento final de RF-36. Tope de 300 tokens de respuesta para no disparar el costo por error.</div>
+    </div>
+
+    <button class="primary" id="runBtn" type="button">Probar conexión con la IA</button>
+  </div>
+
+  <div id="result"></div>
+
+  <div class="panel" id="historyPanel" style="display:none;">
+    <label style="margin-bottom:10px;">Historial de esta sesión</label>
+    <table>
+      <thead>
+        <tr><th></th><th>Hora</th><th>Latencia</th><th>Tokens (in/out)</th><th>Costo</th><th>Detalle</th></tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+    <div class="totals" id="totals"></div>
+  </div>
+
+  <footer>
+    Herramienta de diagnóstico interna — invoca la Edge Function <code>ping-ia</code> del
+    proyecto APP Técnicos. No toca la base de datos ni ningún formulario.
+  </footer>
+</main>
+</div>
+
+<script>
+  // ---- Portón de acceso (freno simple, no es seguridad fuerte) ----
+  // Cambiá esta clave antes de subir la página a una URL compartida del equipo.
+  const SHARED_PASSWORD = "cambiar-esta-clave";
+
+  const gate = document.getElementById('gate');
+  const appBody = document.getElementById('appBody');
+  const gateInput = document.getElementById('gateInput');
+  const gateBtn = document.getElementById('gateBtn');
+  const gateError = document.getElementById('gateError');
+
+  function tryUnlock() {
+    if (gateInput.value === SHARED_PASSWORD) {
+      gate.style.display = 'none';
+      appBody.style.display = 'block';
+    } else {
+      gateError.style.display = 'block';
+    }
+  }
+  gateBtn.addEventListener('click', tryUnlock);
+  gateInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+
+  // ---- Herramienta ----
+  const runBtn = document.getElementById('runBtn');
+  const resultEl = document.getElementById('result');
+  const historyPanel = document.getElementById('historyPanel');
+  const historyBody = document.getElementById('historyBody');
+  const totalsEl = document.getElementById('totals');
+  const keyInput = document.getElementById('key');
+  const toggleKeyBtn = document.getElementById('toggleKey');
+  const customField = document.getElementById('customField');
+  const messageInput = document.getElementById('message');
+
+  let cumulativeCost = 0;
+  let cumulativeCalls = 0;
+
+  toggleKeyBtn.addEventListener('click', () => {
+    const showing = keyInput.type === 'text';
+    keyInput.type = showing ? 'password' : 'text';
+    toggleKeyBtn.textContent = showing ? 'Ver' : 'Ocultar';
+  });
+
+  document.querySelectorAll('input[name="mode"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      customField.style.display = radio.value === 'custom' && radio.checked ? 'block' : 'none';
+    });
+  });
+
+  function fmtTime(d) {
+    return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function fmtCost(costUsd) {
+    if (costUsd == null) return '—';
+    return '$' + costUsd.toFixed(6);
+  }
+
+  function addHistoryRow(ok, latencyMs, tokensStr, costUsd, detail) {
+    historyPanel.style.display = 'block';
+    if (typeof costUsd === 'number') {
+      cumulativeCost += costUsd;
+      cumulativeCalls += 1;
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="dot ' + (ok ? 'ok' : 'fail') + '"></span></td>' +
+      '<td>' + fmtTime(new Date()) + '</td>' +
+      '<td>' + (latencyMs != null ? latencyMs + ' ms' : '—') + '</td>' +
+      '<td>' + tokensStr + '</td>' +
+      '<td>' + fmtCost(costUsd) + '</td>' +
+      '<td>' + detail + '</td>';
+    historyBody.prepend(tr);
+    totalsEl.textContent = 'Total de esta sesión: ' + cumulativeCalls + ' llamada(s), costo acumulado estimado ' + fmtCost(cumulativeCost) + ' USD.';
+  }
+
+  runBtn.addEventListener('click', async () => {
+    const baseUrl = document.getElementById('url').value.trim().replace(/\/+$/, '');
+    const anonKey = keyInput.value.trim();
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const message = mode === 'custom' ? messageInput.value.trim() : '';
+
+    resultEl.style.display = 'block';
+    resultEl.className = '';
+    resultEl.innerHTML = '<h2>Probando…</h2><div class="row">Llamando a ' + (baseUrl || '(sin URL)') + '/functions/v1/ping-ia</div>';
+
+    if (!baseUrl || !anonKey) {
+      resultEl.className = 'fail';
+      resultEl.innerHTML = '<h2>Falta completar un campo</h2><div class="row">Necesitás la URL del servidor y la anon key para poder probar.</div>';
+      return;
+    }
+    if (mode === 'custom' && !message) {
+      resultEl.className = 'fail';
+      resultEl.innerHTML = '<h2>Falta el mensaje</h2><div class="row">Elegiste "Pregunta libre" pero no escribiste nada para mandarle a Claude.</div>';
+      return;
+    }
+
+    runBtn.disabled = true;
+    runBtn.textContent = 'Probando…';
+    const clientStart = performance.now();
+
+    try {
+      const res = await fetch(baseUrl + '/functions/v1/ping-ia', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + anonKey,
+          'apikey': anonKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(mode === 'custom' ? { message } : {})
+      });
+      const clientLatency = Math.round(performance.now() - clientStart);
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        data = null;
+      }
+
+      if (!res.ok || !data || data.ok !== true) {
+        resultEl.className = 'fail';
+        const stage = data && data.stage ? data.stage : ('HTTP ' + res.status);
+        const errMsg = data && data.error ? (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)) : 'Sin más detalle.';
+        resultEl.innerHTML =
+          '<h2>❌ No se pudo completar la conexión</h2>' +
+          '<div class="row"><b>Etapa:</b> ' + stage + '</div>' +
+          '<div class="row"><b>Tiempo total:</b> ' + clientLatency + ' ms (medido desde este navegador)</div>' +
+          '<pre>' + escapeHtml(errMsg) + '</pre>';
+        addHistoryRow(false, data && data.latencyMs, '—', null, stage);
+      } else {
+        const usage = data.usage || {};
+        const tokensStr = (usage.inputTokens ?? '—') + ' / ' + (usage.outputTokens ?? '—');
+        resultEl.className = 'ok';
+        resultEl.innerHTML =
+          '<h2>✅ El servidor puede hablar con la IA</h2>' +
+          '<div class="row"><b>Modelo:</b> ' + escapeHtml(data.model || '—') + '</div>' +
+          (mode === 'custom' ? '<div class="row"><b>Pregunta enviada:</b> "' + escapeHtml(data.prompt || '') + '"</div>' : '') +
+          '<div class="row"><b>Respuesta:</b></div>' +
+          '<pre>' + escapeHtml(data.reply || '') + '</pre>' +
+          '<div class="row"><b>Latencia (servidor):</b> ' + data.latencyMs + ' ms — tiempo real hablando con Anthropic desde el servidor.</div>' +
+          '<div class="row"><b>Tiempo total (navegador):</b> ' + clientLatency + ' ms — incluye además el viaje entre tu PC y el servidor.</div>' +
+          '<div class="row"><b>Tokens (entrada/salida):</b> ' + tokensStr + '</div>' +
+          '<div class="row"><b>Costo estimado:</b> ' + fmtCost(data.costUsd) + ' USD</div>';
+        addHistoryRow(true, data.latencyMs, tokensStr, data.costUsd, mode === 'custom' ? 'Pregunta libre' : 'Ping');
+      }
+    } catch (err) {
+      const clientLatency = Math.round(performance.now() - clientStart);
+      resultEl.className = 'fail';
+      resultEl.innerHTML =
+        '<h2>❌ No se pudo alcanzar el servidor</h2>' +
+        '<div class="row">Esto suele pasar si no estás conectado a la red de la oficina/VPN, o si la URL está mal escrita.</div>' +
+        '<pre>' + escapeHtml(String(err)) + '</pre>';
+      addHistoryRow(false, null, '—', null, 'Sin respuesta del servidor');
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = 'Probar conexión con la IA';
+    }
+  });
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>

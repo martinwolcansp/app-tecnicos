@@ -2,8 +2,7 @@
 
 Carga de datos para técnicos (formulario guiado por chat y voz). Ver los
 documentos de requerimientos y especificación técnica en la carpeta del
-proyecto para el contexto completo. Este repo es el punto de partida de la
-**Etapa 1 (entorno local)** de la hoja de ruta.
+proyecto para el contexto completo.
 
 Formulario piloto cargado: **Informe de Servicio Técnico**, rama **Cámaras**
 (la más simple de las dos ramas del relevamiento original — ver
@@ -16,81 +15,67 @@ datos está armado para que eso sea agregar filas, no reescribir código.
 
 ```
 supabase/
-  migrations/    esquema de base de datos (versionado, se aplica con supabase CLI)
+  migrations/    esquema de base de datos (SQL, versionado)
   seed.sql       datos de ejemplo: el formulario piloto completo
 frontend/        app React + TypeScript (Vite). Panel admin y app del técnico
                  van a vivir acá, con vistas según el rol del usuario logueado.
 ```
 
-## Requisitos en tu máquina
+## Backend: Supabase en el servidor de la empresa (Coolify)
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y corriendo (Supabase local lo usa para levantar Postgres, Auth, Storage, etc.).
-- [Node.js](https://nodejs.org/) 20 o superior.
-- [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started):
-  ```
-  npm install -g supabase
-  ```
+No se usa Supabase local (Docker) — el backend corre directamente en el
+Supabase self-hosted ya desplegado en el servidor de la empresa vía Coolify.
+Los archivos de `supabase/migrations/` y `supabase/seed.sql` son SQL estándar:
+se cargan desde el **SQL Editor** del Supabase Studio del servidor, sin
+necesidad de Supabase CLI ni Docker.
 
-## Puesta en marcha (primera vez)
+**Primera vez / cada vez que se agregue una migración nueva:**
 
-Desde la **raíz del repo** (no desde `frontend/`):
+1. Entrar al Supabase Studio del servidor (URL que da Coolify) → **SQL Editor**.
+2. Pegar y ejecutar el contenido de la migración más reciente en
+   `supabase/migrations/` (en orden, si hay más de una).
+3. Solo la primera vez: pegar y ejecutar también `supabase/seed.sql`, para
+   cargar el formulario piloto. No volver a correrlo después salvo que se
+   quiera resetear los datos de prueba (inserta filas nuevas, no es
+   idempotente).
+4. En **Project Settings → API** del Studio, copiar la **Project URL** y la
+   **anon public key** — se usan en el frontend (ver abajo).
 
-```bash
-# 1. Inicializa la config de Supabase CLI (crea supabase/config.toml;
-#    no toca migrations/ ni seed.sql, que ya vienen armados)
-supabase init
+## Frontend: desarrollo local con Node.js
 
-# 2. Levanta el stack local (Postgres, Auth, Storage, Studio, etc. en Docker)
-supabase start
-```
+El código de la interfaz (`frontend/`) se corre con Node.js en tu compu para
+tener recarga en caliente mientras se programa — no necesita Docker, solo
+se conecta por red al Supabase del servidor.
 
-Al terminar, `supabase start` imprime algo así — copiá esos valores:
-
-```
-API URL: http://127.0.0.1:54321
-anon key: eyJ...
-Studio URL: http://127.0.0.1:54323
-```
+Requisitos: [Node.js](https://nodejs.org/) 20 o superior (LTS).
 
 ```bash
-# 3. Aplica el esquema (migrations/) y carga el formulario piloto (seed.sql)
-supabase db reset
-```
-
-```bash
-# 4. Configura el frontend con esas credenciales
 cd frontend
 cp .env.example .env.local
-# editar .env.local y pegar API URL y anon key del paso 2
+# editar .env.local y pegar la Project URL y la anon key (paso 4 de arriba)
 
 npm install
 npm run dev
 ```
 
 Abrí `http://localhost:5173`: debería mostrar el formulario piloto y sus
-preguntas leídas directamente desde tu Supabase local — eso confirma que el
-entorno completo (Etapa 1) está funcionando.
+preguntas, leídas en vivo desde el Supabase del servidor — eso confirma que
+todo el circuito (servidor ↔ frontend) está funcionando.
 
-Studio (panel visual de la base de datos, útil para inspeccionar las tablas
-sin escribir SQL) queda disponible en `http://127.0.0.1:54323`.
+Si la compu donde corrés `npm run dev` no está en la misma red que el
+servidor (por ejemplo, trabajando fuera de la oficina sin VPN), la app no
+va a poder conectarse — por ahora el desarrollo del frontend hay que hacerlo
+en red con el servidor.
 
 ## Uso día a día
 
-- `supabase start` / `supabase stop` — prender/apagar el stack local.
-- `supabase db reset` — vuelve a aplicar migrations + seed desde cero (borra
-  los datos actuales de la base local).
 - Cambios de esquema: agregar un archivo nuevo en `supabase/migrations/`
-  (no editar los ya aplicados), después `supabase db reset` o
-  `supabase migration up`.
-- `cd frontend && npm run dev` — levanta la app con hot-reload.
-
-## Por qué este entorno es igual al de producción
-
-Todo esto corre con el mismo Supabase self-hosted que después se despliega
-en el servidor Docker de la empresa vía Coolify. El esquema, las políticas
-de permisos (Row Level Security) y las Edge Functions que se escriban acá se
-trasladan sin reescribir — lo único que cambia es la URL a la que apunta el
-frontend (local vs. la del servidor real).
+  con fecha más reciente (no editar los ya aplicados), pegarlo y ejecutarlo
+  en el SQL Editor del Studio del servidor.
+- `cd frontend && npm run dev` — levanta la app con hot-reload, apuntando
+  siempre al Supabase del servidor.
+- Cambios de código: se manejan con GitHub Desktop (editar → revisar diff →
+  Commit to main → Push origin).
 
 ## Estado
 
