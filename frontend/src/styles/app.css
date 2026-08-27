@@ -384,7 +384,14 @@ th {
 .acciones-fila {
   display: flex;
   gap: 12px;
-  align-items: center;
+  /* flex-start, no center: así se alinea con el resto de las celdas de la
+     fila (vertical-align: top en el <td> normal) cuando otra columna hace
+     que la fila sea más alta — ej. "Selección única" pasando a dos líneas. */
+  align-items: flex-start;
+  white-space: nowrap;
+}
+
+.celda-nowrap {
   white-space: nowrap;
 }
 
@@ -524,7 +531,7 @@ th {
 
 .celda-orden {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   white-space: nowrap;
 }

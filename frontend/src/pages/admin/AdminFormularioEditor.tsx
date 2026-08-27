@@ -463,7 +463,7 @@ export function AdminFormularioEditor() {
                     <td>{p.codigo}</td>
                     <td>{p.seccion ?? '—'}</td>
                     <td>{p.texto_pregunta}</td>
-                    <td>{TIPOS_CAMPO.find((t) => t.value === p.tipo_campo)?.label ?? p.tipo_campo}</td>
+                    <td className="celda-nowrap">{TIPOS_CAMPO.find((t) => t.value === p.tipo_campo)?.label ?? p.tipo_campo}</td>
                     <td>{p.obligatorio ? 'Sí' : 'No'}</td>
                     <td className="acciones-fila">
                       <button className="btn-link" onClick={() => abrirLogica(p.id)}>
