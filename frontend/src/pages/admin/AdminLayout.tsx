@@ -19,6 +19,9 @@ export function AdminLayout() {
           <NavLink to="/admin/envios" className={({ isActive }) => (isActive ? 'active' : '')}>
             Envíos
           </NavLink>
+          <NavLink to="/admin/usuarios" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Usuarios
+          </NavLink>
         </nav>
 
         <div className="app-sidebar-footer">

@@ -6,6 +6,7 @@ import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminFormularios } from './pages/admin/AdminFormularios'
 import { AdminFormularioEditor } from './pages/admin/AdminFormularioEditor'
 import { AdminEnvios } from './pages/admin/AdminEnvios'
+import { AdminUsuarios } from './pages/admin/AdminUsuarios'
 import { TecnicoLayout } from './pages/tecnico/TecnicoLayout'
 import { TecnicoFormularios } from './pages/tecnico/TecnicoFormularios'
 import { TecnicoWizard } from './pages/tecnico/TecnicoWizard'
@@ -42,6 +43,7 @@ function App() {
             <Route path="formularios" element={<AdminFormularios />} />
             <Route path="formularios/:formId" element={<AdminFormularioEditor />} />
             <Route path="envios" element={<AdminEnvios />} />
+            <Route path="usuarios" element={<AdminUsuarios />} />
           </Route>
 
           <Route
