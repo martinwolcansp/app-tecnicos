@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../lib/AuthContext'
+import { generateId } from '../../lib/uuid'
 import type { LogicaCondicional, Pregunta } from '../../lib/types'
 
 type Respuestas = Record<string, string | string[]>
@@ -40,7 +41,7 @@ export function TecnicoWizard() {
 
   // Prefijo estable para organizar las fotos subidas durante esta carga,
   // aunque la submission todavía no exista (se crea recién al enviar).
-  const wizardId = useMemo(() => crypto.randomUUID(), [])
+  const wizardId = useMemo(() => generateId(), [])
 
   useEffect(() => {
     if (!formId) return
