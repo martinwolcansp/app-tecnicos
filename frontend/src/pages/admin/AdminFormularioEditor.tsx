@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
+import { Modal } from '../../components/Modal'
 import type { Formulario, FormularioEstado, LogicaCondicional, Pregunta, TipoCampo } from '../../lib/types'
 
 const TIPOS_CAMPO: { value: TipoCampo; label: string }[] = [
@@ -263,6 +264,7 @@ export function AdminFormularioEditor() {
   }
 
   async function handleEliminarLogica(id: string) {
+    if (!confirm('¿Quitar esta regla de lógica condicional? No se puede deshacer.')) return
     const { error: deleteError } = await supabase.from('form_logic').delete().eq('id', id)
     if (deleteError) {
       alert(`No se pudo eliminar la regla: ${deleteError.message}`)
@@ -437,8 +439,11 @@ export function AdminFormularioEditor() {
       )}
 
       {preguntaEnEdicion !== null && (
-        <form className="inline-form" onSubmit={handleGuardarPregunta} style={{ marginTop: 16 }}>
-          <h2>{preguntaEnEdicion === 'nueva' ? 'Nueva pregunta' : 'Editar pregunta'}</h2>
+        <Modal
+          title={preguntaEnEdicion === 'nueva' ? 'Nueva pregunta' : 'Editar pregunta'}
+          onClose={() => setPreguntaEnEdicion(null)}
+        >
+        <form className="inline-form" onSubmit={handleGuardarPregunta}>
           {preguntaError && <div className="alert alert-error">{preguntaError}</div>}
 
           <div className="campo">
@@ -544,6 +549,7 @@ export function AdminFormularioEditor() {
             </button>
           </div>
         </form>
+        </Modal>
       )}
     </div>
   )

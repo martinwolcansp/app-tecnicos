@@ -162,11 +162,42 @@ export function TecnicoWizard() {
     setConfirmadas((prev) => new Set(prev).add(preguntaId))
   }
 
+  // Toda pregunta que dependa (directa o indirectamente) de la respuesta de
+  // `preguntaId` para decidir si se muestra u oculta — ej. si se cambia "3"
+  // (Alarmas sí/no), esto trae "4", y de "4" a su vez trae "4.1", "4.1.1", etc.
+  function idsDependientes(preguntaId: string): string[] {
+    const directos = logica.filter((l) => l.pregunta_origen_id === preguntaId).map((l) => l.question_id)
+    const todos = new Set(directos)
+    for (const id of directos) {
+      for (const nieto of idsDependientes(id)) todos.add(nieto)
+    }
+    return [...todos]
+  }
+
   function editarRespuesta(preguntaId: string) {
+    const dependientes = idsDependientes(preguntaId)
+
+    // Al cambiar esta respuesta, todo lo que se había cargado más adelante
+    // en base al valor anterior deja de tener sentido — se borra en vez de
+    // dejarlo "colgado" (aunque no se envía si la pregunta queda oculta, es
+    // más claro para el técnico ver el formulario vacío desde ahí y no
+    // arrastrar respuestas de una rama que ya no eligió).
+    setRespuestas((prev) => {
+      const siguiente = { ...prev }
+      for (const id of dependientes) delete siguiente[id]
+      return siguiente
+    })
     setConfirmadas((prev) => {
       const siguiente = new Set(prev)
       siguiente.delete(preguntaId)
+      for (const id of dependientes) siguiente.delete(id)
       return siguiente
+    })
+
+    // Vuelve a llevar la vista hasta la pregunta que se está por cambiar,
+    // ya que puede haber quedado varias pantallas más arriba.
+    window.requestAnimationFrame(() => {
+      document.getElementById(`pregunta-${preguntaId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
   }
 
@@ -438,7 +469,7 @@ export function TecnicoWizard() {
       </div>
 
       {preguntasVisibles.map((p) => (
-        <div key={p.id} className="campo">
+        <div key={p.id} id={`pregunta-${p.id}`} className="campo">
           <span className="campo-titulo">
             {p.texto_pregunta}
             {p.obligatorio && <span className="requerido"> *</span>}
