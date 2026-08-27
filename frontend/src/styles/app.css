@@ -397,6 +397,29 @@ th {
   color: var(--accent);
 }
 
+.filtros-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.filtros-fila .campo {
+  margin: 0;
+  min-width: 160px;
+}
+
+.filtros-fila select,
+.filtros-fila input[type='date'] {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-h);
+  font-size: 13.5px;
+}
+
 .acciones-fila {
   display: flex;
   gap: 12px;

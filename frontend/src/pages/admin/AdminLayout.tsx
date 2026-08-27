@@ -19,11 +19,11 @@ export function AdminLayout() {
         </div>
 
         <nav className="app-nav">
-          <NavLink to="/admin/formularios" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Formularios
-          </NavLink>
           <NavLink to="/admin/envios" className={({ isActive }) => (isActive ? 'active' : '')}>
             Envíos
+          </NavLink>
+          <NavLink to="/admin/formularios" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Formularios
           </NavLink>
           <NavLink to="/admin/usuarios" className={({ isActive }) => (isActive ? 'active' : '')}>
             Usuarios
