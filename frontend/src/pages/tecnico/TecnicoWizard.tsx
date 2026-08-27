@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../lib/AuthContext'
 import { generateId } from '../../lib/uuid'
+import { generarReporteTexto } from '../../lib/reporteTexto'
+import { ReporteImpresion } from '../../components/ReporteImpresion'
 import type { LogicaCondicional, Pregunta } from '../../lib/types'
 
 type Respuestas = Record<string, string | string[]>
@@ -37,6 +39,7 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
 
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [logica, setLogica] = useState<LogicaCondicional[]>([])
+  const [formularioNombre, setFormularioNombre] = useState('Informe')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,6 +69,9 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
     let mounted = true
 
     async function cargar() {
+      const { data: formData } = await supabase.from('forms').select('nombre').eq('id', formId).single()
+      if (mounted && formData?.nombre) setFormularioNombre(formData.nombre)
+
       const { data: qData, error: qError } = await supabase
         .from('form_questions')
         .select('id, form_id, codigo, seccion, texto_pregunta, tipo_campo, obligatorio, opciones, orden')
@@ -458,6 +464,30 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
   if (error) return <div className="alert alert-error">{error}</div>
 
   if (codigoSeguimiento) {
+    const lineasReporte = preguntasVisibles
+      .filter((p) => respuestas[p.id] != null)
+      .map((p) => {
+        const val = respuestas[p.id]
+        const respuesta =
+          p.tipo_campo === 'foto'
+            ? typeof val === 'string' && val
+              ? '[Foto adjunta]'
+              : '—'
+            : Array.isArray(val)
+              ? val.join(', ')
+              : val
+        return { codigo: p.codigo, texto_pregunta: p.texto_pregunta, respuesta: respuesta || '—' }
+      })
+
+    const textoReporte = generarReporteTexto({
+      formularioNombre,
+      tecnicoNombre: profile?.nombre ?? '—',
+      cliente: cliente.trim() || null,
+      fecha: new Date(),
+      codigoSeguimiento: modoPrueba ? 'PRUEBA — no se envió' : codigoSeguimiento,
+      lineas: lineasReporte,
+    })
+
     return (
       <div className="confirmacion">
         {modoPrueba ? (
@@ -474,7 +504,12 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
             <div className="codigo-seguimiento">{codigoSeguimiento}</div>
           </>
         )}
-        <button className="btn-primary" onClick={() => navigate(volverA)}>
+
+        <div style={{ textAlign: 'left', maxWidth: 560, margin: '24px auto' }}>
+          <ReporteImpresion texto={textoReporte} />
+        </div>
+
+        <button className="btn-primary no-imprimir" onClick={() => navigate(volverA)}>
           {modoPrueba ? 'Volver al editor' : 'Volver a formularios'}
         </button>
       </div>

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
+import { Modal } from '../../components/Modal'
+import { ReporteImpresion } from '../../components/ReporteImpresion'
+import { generarReporteTexto } from '../../lib/reporteTexto'
 import type { Submission, SubmissionEstado } from '../../lib/types'
 
 const ESTADOS: { value: SubmissionEstado; label: string }[] = [
@@ -31,6 +34,9 @@ export function AdminEnvios() {
   const [error, setError] = useState<string | null>(null)
   const [borrandoId, setBorrandoId] = useState<string | null>(null)
   const [cambiandoEstadoId, setCambiandoEstadoId] = useState<string | null>(null)
+
+  const [imprimiendo, setImprimiendo] = useState<Submission | null>(null)
+  const [reporteTexto, setReporteTexto] = useState<string | null>(null)
 
   const [filtroForm, setFiltroForm] = useState('')
   const [filtroTecnico, setFiltroTecnico] = useState('')
@@ -119,6 +125,45 @@ export function AdminEnvios() {
       return
     }
     setRows((prev) => prev.map((r) => (r.id === s.id ? { ...r, estado: nuevoEstado } : r)))
+  }
+
+  async function abrirImprimir(s: Submission) {
+    setImprimiendo(s)
+    setReporteTexto(null)
+
+    const { data: respuestas } = await supabase
+      .from('submission_answers')
+      .select('question_id, valor, archivo_url')
+      .eq('submission_id', s.id)
+
+    const preguntaIds = (respuestas ?? []).map((r) => r.question_id)
+    const { data: preguntas } = preguntaIds.length
+      ? await supabase
+          .from('form_questions')
+          .select('id, codigo, texto_pregunta, tipo_campo, orden')
+          .in('id', preguntaIds)
+          .order('orden', { ascending: true })
+      : { data: [] as { id: string; codigo: string; texto_pregunta: string; tipo_campo: string }[] }
+
+    const respuestaPorPregunta = new Map((respuestas ?? []).map((r) => [r.question_id, r]))
+
+    const lineas = (preguntas ?? []).map((p) => {
+      const r = respuestaPorPregunta.get(p.id)
+      const respuesta =
+        p.tipo_campo === 'foto' ? (r?.archivo_url ? '[Foto adjunta]' : '—') : (r?.valor ?? '—')
+      return { codigo: p.codigo, texto_pregunta: p.texto_pregunta, respuesta }
+    })
+
+    setReporteTexto(
+      generarReporteTexto({
+        formularioNombre: formNames[s.form_id] ?? 'Informe',
+        tecnicoNombre: tecnicoNames[s.enviado_por] ?? '—',
+        cliente: s.cliente,
+        fecha: new Date(s.created_at),
+        codigoSeguimiento: s.codigo_seguimiento,
+        lineas,
+      }),
+    )
   }
 
   async function handleEliminar(s: Submission) {
@@ -248,18 +293,29 @@ export function AdminEnvios() {
                 </td>
                 <td>{new Date(r.created_at).toLocaleString('es-AR')}</td>
                 <td>
-                  <button
-                    className="btn-link btn-link-danger"
-                    onClick={() => handleEliminar(r)}
-                    disabled={borrandoId === r.id}
-                  >
-                    {borrandoId === r.id ? 'Eliminando…' : 'Eliminar'}
-                  </button>
+                  <div className="acciones-fila">
+                    <button className="btn-link" onClick={() => abrirImprimir(r)}>
+                      Imprimir
+                    </button>
+                    <button
+                      className="btn-link btn-link-danger"
+                      onClick={() => handleEliminar(r)}
+                      disabled={borrandoId === r.id}
+                    >
+                      {borrandoId === r.id ? 'Eliminando…' : 'Eliminar'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {imprimiendo && (
+        <Modal title={`Informe — ${imprimiendo.codigo_seguimiento}`} onClose={() => setImprimiendo(null)}>
+          {reporteTexto === null ? <p>Preparando el informe…</p> : <ReporteImpresion texto={reporteTexto} />}
+        </Modal>
       )}
     </div>
   )
