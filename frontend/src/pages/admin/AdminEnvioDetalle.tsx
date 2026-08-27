@@ -417,7 +417,7 @@ export function AdminEnvioDetalle() {
       </div>
 
       <p style={{ marginTop: 32 }}>
-        <button className="btn-link btn-link-danger" onClick={handleEliminar} disabled={borrando}>
+        <button className="btn-danger" onClick={handleEliminar} disabled={borrando}>
           {borrando ? 'Eliminando…' : 'Eliminar este envío'}
         </button>
       </p>

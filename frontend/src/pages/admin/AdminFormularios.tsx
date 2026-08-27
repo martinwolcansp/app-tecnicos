@@ -153,7 +153,7 @@ export function AdminFormularios() {
                 <td>{new Date(f.created_at).toLocaleDateString('es-AR')}</td>
                 <td>
                   <button
-                    className="btn-link btn-link-danger"
+                    className="btn-danger btn-sm"
                     onClick={() => handleEliminar(f)}
                     disabled={borrandoId === f.id}
                   >

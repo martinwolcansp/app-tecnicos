@@ -270,7 +270,7 @@ export function AdminEnvios() {
           <tbody>
             {filasFiltradas.map((r) => (
               <tr key={r.id}>
-                <td>
+                <td className="celda-nowrap">
                   <Link to={`/admin/envios/${r.id}`} className="table-link">
                     <code>{r.codigo_seguimiento}</code>
                   </Link>
@@ -280,6 +280,7 @@ export function AdminEnvios() {
                 <td>{r.cliente ?? '—'}</td>
                 <td>
                   <select
+                    className={`chip-select chip-${r.estado}`}
                     value={r.estado}
                     disabled={cambiandoEstadoId === r.id}
                     onChange={(e) => handleCambiarEstado(r, e.target.value as SubmissionEstado)}
@@ -294,11 +295,11 @@ export function AdminEnvios() {
                 <td>{new Date(r.created_at).toLocaleString('es-AR')}</td>
                 <td>
                   <div className="acciones-fila">
-                    <button className="btn-link" onClick={() => abrirImprimir(r)}>
+                    <button className="btn-secondary btn-sm" onClick={() => abrirImprimir(r)}>
                       Imprimir
                     </button>
                     <button
-                      className="btn-link btn-link-danger"
+                      className="btn-danger btn-sm"
                       onClick={() => handleEliminar(r)}
                       disabled={borrandoId === r.id}
                     >

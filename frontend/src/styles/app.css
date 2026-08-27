@@ -438,6 +438,103 @@ th {
   color: #b00020;
 }
 
+/* ---------- Sistema de botones "chip" (estilo Bootstrap) ----------
+   .btn-primary ya existía (acciones principales, ej. Guardar/Crear/Enviar).
+   Se suman variantes para acciones secundarias y destructivas dentro de
+   tablas — .btn-sm las hace compactas para no inflar el alto de la fila. */
+
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.btn-secondary:disabled,
+.btn-danger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn-secondary {
+  background: var(--code-bg);
+  color: var(--text-h);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.btn-danger {
+  background: rgba(176, 0, 32, 0.1);
+  color: #b00020;
+  border-color: rgba(176, 0, 32, 0.22);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(176, 0, 32, 0.18);
+}
+
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 12.5px;
+  border-radius: 999px;
+}
+
+/* ---------- Select de estado con forma de "chip" de color ---------- */
+
+.chip-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 26px 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666e7a' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.chip-select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chip-nuevo {
+  color: #b8860b;
+  background-color: rgba(184, 134, 11, 0.12);
+}
+
+.chip-en_revision {
+  color: #2563eb;
+  background-color: rgba(37, 99, 235, 0.12);
+}
+
+.chip-aprobado {
+  color: #1f9d63;
+  background-color: rgba(31, 157, 99, 0.12);
+}
+
+.chip-rechazado {
+  color: #6b6375;
+  background-color: rgba(107, 99, 117, 0.12);
+}
+
 .inline-form {
   display: flex;
   flex-direction: column;

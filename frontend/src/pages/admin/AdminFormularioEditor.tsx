@@ -474,14 +474,14 @@ export function AdminFormularioEditor() {
                     <td>{p.obligatorio ? 'Sí' : 'No'}</td>
                     <td>
                       <div className="acciones-fila">
-                        <button className="btn-link" onClick={() => abrirLogica(p.id)}>
+                        <button className="btn-secondary btn-sm" onClick={() => abrirLogica(p.id)}>
                           Lógica ({reglas.length})
                         </button>
-                        <button className="btn-link" onClick={() => abrirEdicionPregunta(p)}>
+                        <button className="btn-secondary btn-sm" onClick={() => abrirEdicionPregunta(p)}>
                           Editar
                         </button>
                         <button
-                          className="btn-link btn-link-danger"
+                          className="btn-danger btn-sm"
                           onClick={() => handleEliminarPregunta(p)}
                           disabled={borrandoPreguntaId === p.id}
                         >
@@ -511,7 +511,7 @@ export function AdminFormularioEditor() {
                                   <strong>{origen ? `${origen.codigo} — ${origen.texto_pregunta}` : '(pregunta eliminada)'}</strong>{' '}
                                   = "<strong>{r.valor_esperado}</strong>"
                                 </span>
-                                <button className="btn-link btn-link-danger" onClick={() => handleEliminarLogica(r.id)}>
+                                <button className="btn-danger btn-sm" onClick={() => handleEliminarLogica(r.id)}>
                                   Quitar
                                 </button>
                               </div>
@@ -664,7 +664,7 @@ export function AdminFormularioEditor() {
             <button className="btn-primary" type="submit" disabled={guardandoPregunta}>
               {guardandoPregunta ? 'Guardando…' : 'Guardar pregunta'}
             </button>
-            <button type="button" className="btn-link" onClick={() => setPreguntaEnEdicion(null)}>
+            <button type="button" className="btn-secondary" onClick={() => setPreguntaEnEdicion(null)}>
               Cancelar
             </button>
           </div>
