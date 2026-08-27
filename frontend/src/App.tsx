@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Login } from './pages/Login'
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminFormularios } from './pages/admin/AdminFormularios'
+import { AdminFormularioEditor } from './pages/admin/AdminFormularioEditor'
 import { AdminEnvios } from './pages/admin/AdminEnvios'
 import { TecnicoLayout } from './pages/tecnico/TecnicoLayout'
 import { TecnicoFormularios } from './pages/tecnico/TecnicoFormularios'
@@ -39,6 +40,7 @@ function App() {
           >
             <Route index element={<Navigate to="formularios" replace />} />
             <Route path="formularios" element={<AdminFormularios />} />
+            <Route path="formularios/:formId" element={<AdminFormularioEditor />} />
             <Route path="envios" element={<AdminEnvios />} />
           </Route>
 
