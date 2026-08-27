@@ -60,3 +60,11 @@ export type Submission = {
   codigo_seguimiento: string
   created_at: string
 }
+
+export type SubmissionAnswer = {
+  id: string
+  submission_id: string
+  question_id: string
+  valor: string | null
+  archivo_url: string | null
+}
