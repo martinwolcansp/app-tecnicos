@@ -34,6 +34,16 @@ export function TecnicoWizard() {
 
   const [cliente, setCliente] = useState('')
   const [respuestas, setRespuestas] = useState<Respuestas>({})
+  // Preguntas de selección (si_no / seleccion_unica / seleccion_multiple) ya
+  // "confirmadas": quedan deshabilitadas para que no se puedan volver a
+  // tocar por accidente mientras se sigue completando el resto del
+  // formulario — cambiar una respuesta de estas a mitad de carga puede
+  // alterar qué preguntas de la rama siguen visibles (RF-13/RF-14). El
+  // técnico puede desbloquear una puntual con "Cambiar respuesta" si se
+  // equivocó. Los campos de texto libre no se bloquean: no gatillan
+  // ramificación en este formulario y bloquearlos en cada tecla sería
+  // incómodo.
+  const [confirmadas, setConfirmadas] = useState<Set<string>>(new Set())
   const [subiendoArchivo, setSubiendoArchivo] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [envioError, setEnvioError] = useState<string | null>(null)
@@ -139,6 +149,27 @@ export function TecnicoWizard() {
     })
   }
 
+  // si_no / seleccion_unica: una sola opción alcanza para responder, así que
+  // se confirma (y se bloquea) en el mismo click.
+  function seleccionarUnica(pregunta: Pregunta, valor: string) {
+    setRespuesta(pregunta.id, valor)
+    setConfirmadas((prev) => new Set(prev).add(pregunta.id))
+  }
+
+  // seleccion_multiple: puede necesitar tildar varias opciones, así que acá
+  // el bloqueo es un paso aparte ("Confirmar selección"), no automático.
+  function confirmarMultiple(preguntaId: string) {
+    setConfirmadas((prev) => new Set(prev).add(preguntaId))
+  }
+
+  function editarRespuesta(preguntaId: string) {
+    setConfirmadas((prev) => {
+      const siguiente = new Set(prev)
+      siguiente.delete(preguntaId)
+      return siguiente
+    })
+  }
+
   async function handleFoto(pregunta: Pregunta, file: File | null) {
     if (!file) return
     setSubiendoArchivo(pregunta.id)
@@ -170,6 +201,9 @@ export function TecnicoWizard() {
       const vacio = val == null || (Array.isArray(val) ? val.length === 0 : val.trim() === '')
       if (vacio) {
         return `Falta responder: "${p.texto_pregunta}"`
+      }
+      if (p.tipo_campo === 'seleccion_multiple' && !confirmadas.has(p.id)) {
+        return `Confirmá la selección de: "${p.texto_pregunta}"`
       }
     }
     return null
@@ -270,53 +304,94 @@ export function TecnicoWizard() {
             onChange={(e) => setRespuesta(p.id, e.target.value)}
           />
         )
-      case 'si_no':
+      case 'si_no': {
+        const confirmada = confirmadas.has(p.id)
         return (
-          <div className="opciones-radio">
-            {['Sí', 'No'].map((op) => (
-              <label key={op}>
-                <input
-                  type="radio"
-                  name={p.id}
-                  checked={valor === op}
-                  onChange={() => setRespuesta(p.id, op)}
-                />
-                {op}
-              </label>
-            ))}
+          <div className="campo-opciones-confirmable">
+            <div className="opciones-radio">
+              {['Sí', 'No'].map((op) => (
+                <label key={op} className={confirmada ? 'opcion-deshabilitada' : undefined}>
+                  <input
+                    type="radio"
+                    name={p.id}
+                    checked={valor === op}
+                    disabled={confirmada}
+                    onChange={() => seleccionarUnica(p, op)}
+                  />
+                  {op}
+                </label>
+              ))}
+            </div>
+            {confirmada && (
+              <button type="button" className="btn-link" onClick={() => editarRespuesta(p.id)}>
+                Cambiar respuesta
+              </button>
+            )}
           </div>
         )
-      case 'seleccion_unica':
+      }
+      case 'seleccion_unica': {
+        const confirmada = confirmadas.has(p.id)
         return (
-          <div className="opciones-radio">
-            {(p.opciones ?? []).map((op) => (
-              <label key={op}>
-                <input
-                  type="radio"
-                  name={p.id}
-                  checked={valor === op}
-                  onChange={() => setRespuesta(p.id, op)}
-                />
-                {op}
-              </label>
-            ))}
+          <div className="campo-opciones-confirmable">
+            <div className="opciones-radio">
+              {(p.opciones ?? []).map((op) => (
+                <label key={op} className={confirmada ? 'opcion-deshabilitada' : undefined}>
+                  <input
+                    type="radio"
+                    name={p.id}
+                    checked={valor === op}
+                    disabled={confirmada}
+                    onChange={() => seleccionarUnica(p, op)}
+                  />
+                  {op}
+                </label>
+              ))}
+            </div>
+            {confirmada && (
+              <button type="button" className="btn-link" onClick={() => editarRespuesta(p.id)}>
+                Cambiar respuesta
+              </button>
+            )}
           </div>
         )
-      case 'seleccion_multiple':
+      }
+      case 'seleccion_multiple': {
+        const confirmada = confirmadas.has(p.id)
+        const hayAlgunaMarcada = Array.isArray(valor) && valor.length > 0
         return (
-          <div className="opciones-check">
-            {(p.opciones ?? []).map((op) => (
-              <label key={op}>
-                <input
-                  type="checkbox"
-                  checked={Array.isArray(valor) && valor.includes(op)}
-                  onChange={(e) => toggleMultiple(p.id, op, e.target.checked)}
-                />
-                {op}
-              </label>
-            ))}
+          <div className="campo-opciones-confirmable">
+            <div className="opciones-check">
+              {(p.opciones ?? []).map((op) => (
+                <label key={op} className={confirmada ? 'opcion-deshabilitada' : undefined}>
+                  <input
+                    type="checkbox"
+                    checked={Array.isArray(valor) && valor.includes(op)}
+                    disabled={confirmada}
+                    onChange={(e) => toggleMultiple(p.id, op, e.target.checked)}
+                  />
+                  {op}
+                </label>
+              ))}
+            </div>
+            {!confirmada && (
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => confirmarMultiple(p.id)}
+                disabled={!hayAlgunaMarcada}
+              >
+                Confirmar selección
+              </button>
+            )}
+            {confirmada && (
+              <button type="button" className="btn-link" onClick={() => editarRespuesta(p.id)}>
+                Cambiar respuesta
+              </button>
+            )}
           </div>
         )
+      }
       case 'foto':
         return (
           <div className="campo-foto">
