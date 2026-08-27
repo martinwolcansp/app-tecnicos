@@ -42,6 +42,7 @@ function App() {
             <Route index element={<Navigate to="formularios" replace />} />
             <Route path="formularios" element={<AdminFormularios />} />
             <Route path="formularios/:formId" element={<AdminFormularioEditor />} />
+            <Route path="formularios/:formId/probar" element={<TecnicoWizard modoPrueba />} />
             <Route path="envios" element={<AdminEnvios />} />
             <Route path="usuarios" element={<AdminUsuarios />} />
           </Route>

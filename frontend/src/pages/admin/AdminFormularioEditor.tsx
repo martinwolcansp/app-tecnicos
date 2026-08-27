@@ -354,11 +354,16 @@ export function AdminFormularioEditor() {
 
   return (
     <div>
-      <p>
-        <Link to="/admin/formularios" className="btn-link">
-          ← Volver a formularios
+      <div className="page-header">
+        <p>
+          <Link to="/admin/formularios" className="btn-link">
+            ← Volver a formularios
+          </Link>
+        </p>
+        <Link to={`/admin/formularios/${formId}/probar`} className="btn-link">
+          Probar formulario →
         </Link>
-      </p>
+      </div>
       <h1>{formulario.nombre}</h1>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -429,35 +434,37 @@ export function AdminFormularioEditor() {
                     onDragLeave={() => setSobreId((actual) => (actual === p.id ? null : actual))}
                     onDrop={(e) => handleDrop(e, p.id)}
                   >
-                    <td className="celda-orden">
-                      <span
-                        className="asa-arrastre"
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, p.id)}
-                        onDragEnd={handleDragEnd}
-                        title="Arrastrar para reordenar"
-                      >
-                        ⠿
-                      </span>
-                      <div className="flechas-orden">
-                        <button
-                          type="button"
-                          className="btn-flecha"
-                          onClick={() => moverArriba(p.id)}
-                          disabled={indice === 0}
-                          aria-label="Mover arriba"
+                    <td>
+                      <div className="celda-orden">
+                        <span
+                          className="asa-arrastre"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, p.id)}
+                          onDragEnd={handleDragEnd}
+                          title="Arrastrar para reordenar"
                         >
-                          ▲
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-flecha"
-                          onClick={() => moverAbajo(p.id)}
-                          disabled={indice === preguntas.length - 1}
-                          aria-label="Mover abajo"
-                        >
-                          ▼
-                        </button>
+                          ⠿
+                        </span>
+                        <div className="flechas-orden">
+                          <button
+                            type="button"
+                            className="btn-flecha"
+                            onClick={() => moverArriba(p.id)}
+                            disabled={indice === 0}
+                            aria-label="Mover arriba"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-flecha"
+                            onClick={() => moverAbajo(p.id)}
+                            disabled={indice === preguntas.length - 1}
+                            aria-label="Mover abajo"
+                          >
+                            ▼
+                          </button>
+                        </div>
                       </div>
                     </td>
                     <td>{p.codigo}</td>
@@ -465,20 +472,22 @@ export function AdminFormularioEditor() {
                     <td>{p.texto_pregunta}</td>
                     <td className="celda-nowrap">{TIPOS_CAMPO.find((t) => t.value === p.tipo_campo)?.label ?? p.tipo_campo}</td>
                     <td>{p.obligatorio ? 'Sí' : 'No'}</td>
-                    <td className="acciones-fila">
-                      <button className="btn-link" onClick={() => abrirLogica(p.id)}>
-                        Lógica ({reglas.length})
-                      </button>
-                      <button className="btn-link" onClick={() => abrirEdicionPregunta(p)}>
-                        Editar
-                      </button>
-                      <button
-                        className="btn-link btn-link-danger"
-                        onClick={() => handleEliminarPregunta(p)}
-                        disabled={borrandoPreguntaId === p.id}
-                      >
-                        {borrandoPreguntaId === p.id ? 'Eliminando…' : 'Eliminar'}
-                      </button>
+                    <td>
+                      <div className="acciones-fila">
+                        <button className="btn-link" onClick={() => abrirLogica(p.id)}>
+                          Lógica ({reglas.length})
+                        </button>
+                        <button className="btn-link" onClick={() => abrirEdicionPregunta(p)}>
+                          Editar
+                        </button>
+                        <button
+                          className="btn-link btn-link-danger"
+                          onClick={() => handleEliminarPregunta(p)}
+                          disabled={borrandoPreguntaId === p.id}
+                        >
+                          {borrandoPreguntaId === p.id ? 'Eliminando…' : 'Eliminar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {logicaAbiertaPara === p.id && (

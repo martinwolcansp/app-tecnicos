@@ -21,11 +21,19 @@ function generarCodigoSeguimiento(): string {
  * A propósito NO incluye todavía: voz (RF-06/07/08), interpretación por IA
  * (RF-36/37/38, ver supabase/functions/ping-ia/ para la PoC de eso), ni modo
  * offline (Etapa 5). Es la base funcional sobre la que se suman esas capas.
+ *
+ * `modoPrueba`: se usa cuando el administrador abre "Probar formulario"
+ * desde el editor (RF interno, no numerado). Recorre las mismas preguntas y
+ * respeta la misma lógica condicional que vería un técnico real, pero al
+ * enviar NO crea submission/submission_answers en la base — solo confirma
+ * que el recorrido llegó al final. Así se puede probar la ramificación de un
+ * formulario sin ensuciar la lista de Envíos con datos falsos.
  */
-export function TecnicoWizard() {
+export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } = {}) {
   const { formId } = useParams<{ formId: string }>()
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const volverA = modoPrueba ? `/admin/formularios/${formId}` : '/tecnico'
 
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [logica, setLogica] = useState<LogicaCondicional[]>([])
@@ -246,6 +254,12 @@ export function TecnicoWizard() {
       setEnvioError(problema)
       return
     }
+
+    if (modoPrueba) {
+      setCodigoSeguimiento('PRUEBA')
+      return
+    }
+
     if (!profile || !formId) return
 
     setEnviando(true)
@@ -446,11 +460,22 @@ export function TecnicoWizard() {
   if (codigoSeguimiento) {
     return (
       <div className="confirmacion">
-        <h1>¡Envío registrado!</h1>
-        <p className="subtitle">Guardá este código de seguimiento:</p>
-        <div className="codigo-seguimiento">{codigoSeguimiento}</div>
-        <button className="btn-primary" onClick={() => navigate('/tecnico')}>
-          Volver a formularios
+        {modoPrueba ? (
+          <>
+            <h1>Prueba completa</h1>
+            <p className="subtitle">
+              El recorrido llegó hasta el final respetando la lógica condicional. No se guardó ningún envío real.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1>¡Envío registrado!</h1>
+            <p className="subtitle">Guardá este código de seguimiento:</p>
+            <div className="codigo-seguimiento">{codigoSeguimiento}</div>
+          </>
+        )}
+        <button className="btn-primary" onClick={() => navigate(volverA)}>
+          {modoPrueba ? 'Volver al editor' : 'Volver a formularios'}
         </button>
       </div>
     )
@@ -458,10 +483,16 @@ export function TecnicoWizard() {
 
   return (
     <div className="wizard">
-      <button className="btn-link" onClick={() => navigate('/tecnico')}>
+      <button className="btn-link" onClick={() => navigate(volverA)}>
         ← Volver
       </button>
       <h1>Cargar informe</h1>
+
+      {modoPrueba && (
+        <div className="alert alert-info">
+          Modo prueba — estás viendo el formulario como lo vería un técnico. Nada de esto se guarda.
+        </div>
+      )}
 
       <div className="campo">
         <span className="campo-titulo">Cliente (opcional)</span>

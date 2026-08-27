@@ -319,17 +319,19 @@ export function AdminUsuarios() {
                     )}
                   </td>
                   <td>{new Date(u.created_at).toLocaleDateString('es-AR')}</td>
-                  <td className="acciones-fila">
-                    <button className="btn-link" onClick={() => abrirReset(u)}>
-                      Restablecer contraseña
-                    </button>
-                    <button
-                      className="btn-link btn-link-danger"
-                      onClick={() => handleEliminar(u)}
-                      disabled={esUnoMismo || borrandoId === u.id}
-                    >
-                      {borrandoId === u.id ? 'Eliminando…' : 'Eliminar'}
-                    </button>
+                  <td>
+                    <div className="acciones-fila">
+                      <button className="btn-link" onClick={() => abrirReset(u)}>
+                        Restablecer contraseña
+                      </button>
+                      <button
+                        className="btn-link btn-link-danger"
+                        onClick={() => handleEliminar(u)}
+                        disabled={esUnoMismo || borrandoId === u.id}
+                      >
+                        {borrandoId === u.id ? 'Eliminando…' : 'Eliminar'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )

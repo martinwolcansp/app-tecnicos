@@ -10,6 +10,12 @@ export function AdminLayout() {
         <div className="app-sidebar-header">
           <strong>App Técnicos</strong>
           <span className="badge badge-admin">Administrador</span>
+          <div className="app-sidebar-usuario">
+            <span>{profile?.nombre}</span>
+            <button className="btn-link" onClick={signOut}>
+              Cerrar sesión
+            </button>
+          </div>
         </div>
 
         <nav className="app-nav">
@@ -23,13 +29,6 @@ export function AdminLayout() {
             Usuarios
           </NavLink>
         </nav>
-
-        <div className="app-sidebar-footer">
-          <span>{profile?.nombre}</span>
-          <button className="btn-link" onClick={signOut}>
-            Cerrar sesión
-          </button>
-        </div>
       </aside>
 
       <main className="app-content">
