@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { Modal } from '../../components/Modal'
@@ -66,6 +66,12 @@ export function AdminFormularioEditor() {
   const [guardandoPregunta, setGuardandoPregunta] = useState(false)
   const [preguntaError, setPreguntaError] = useState<string | null>(null)
   const [borrandoPreguntaId, setBorrandoPreguntaId] = useState<string | null>(null)
+
+  // Reordenar preguntas (arrastrar y soltar, con flechas como alternativa
+  // accesible / para pantallas táctiles donde el drag nativo no anda bien)
+  const [arrastrandoId, setArrastrandoId] = useState<string | null>(null)
+  const [sobreId, setSobreId] = useState<string | null>(null)
+  const [guardandoOrden, setGuardandoOrden] = useState(false)
 
   // Panel de lógica condicional expandido para una pregunta
   const [logicaAbiertaPara, setLogicaAbiertaPara] = useState<string | null>(null)
@@ -237,6 +243,75 @@ export function AdminFormularioEditor() {
     cargarTodo()
   }
 
+  // Mueve `origenId` a la posición que ocupaba `destinoId`, recalcula el
+  // orden secuencial (0, 1, 2…) de toda la lista y lo persiste en la base.
+  // Así, insertar una pregunta a mitad del formulario es: crearla al final
+  // y arrastrarla (o usar las flechas) hasta donde corresponda, sin tener
+  // que retocar a mano el orden de todas las que quedan después.
+  async function moverPregunta(origenId: string, destinoId: string) {
+    if (origenId === destinoId) return
+    const origenIdx = preguntas.findIndex((p) => p.id === origenId)
+    const destinoIdx = preguntas.findIndex((p) => p.id === destinoId)
+    if (origenIdx === -1 || destinoIdx === -1) return
+
+    const reordenadas = [...preguntas]
+    const [movida] = reordenadas.splice(origenIdx, 1)
+    reordenadas.splice(destinoIdx, 0, movida)
+
+    // Se ve al toque, sin esperar el viaje de ida y vuelta a la base.
+    setPreguntas(reordenadas.map((p, i) => ({ ...p, orden: i })))
+
+    setGuardandoOrden(true)
+    const resultados = await Promise.all(
+      reordenadas.map((p, i) => supabase.from('form_questions').update({ orden: i }).eq('id', p.id))
+    )
+    setGuardandoOrden(false)
+
+    const conError = resultados.find((r) => r.error)
+    if (conError?.error) {
+      setError(`No se pudo guardar el nuevo orden: ${conError.error.message}`)
+      cargarTodo() // vuelve a traer el orden real de la base ante la duda
+    }
+  }
+
+  function moverArriba(preguntaId: string) {
+    const idx = preguntas.findIndex((p) => p.id === preguntaId)
+    if (idx <= 0) return
+    moverPregunta(preguntaId, preguntas[idx - 1].id)
+  }
+
+  function moverAbajo(preguntaId: string) {
+    const idx = preguntas.findIndex((p) => p.id === preguntaId)
+    if (idx === -1 || idx >= preguntas.length - 1) return
+    moverPregunta(preguntaId, preguntas[idx + 1].id)
+  }
+
+  function handleDragStart(e: DragEvent<HTMLSpanElement>, preguntaId: string) {
+    setArrastrandoId(preguntaId)
+    e.dataTransfer.effectAllowed = 'move'
+    const fila = (e.target as HTMLElement).closest('tr')
+    if (fila) e.dataTransfer.setDragImage(fila, 20, 20)
+  }
+
+  function handleDragOver(e: DragEvent<HTMLTableRowElement>, preguntaId: string) {
+    e.preventDefault()
+    if (arrastrandoId && arrastrandoId !== preguntaId && sobreId !== preguntaId) {
+      setSobreId(preguntaId)
+    }
+  }
+
+  function handleDrop(e: DragEvent<HTMLTableRowElement>, destinoId: string) {
+    e.preventDefault()
+    setSobreId(null)
+    if (arrastrandoId) moverPregunta(arrastrandoId, destinoId)
+    setArrastrandoId(null)
+  }
+
+  function handleDragEnd() {
+    setArrastrandoId(null)
+    setSobreId(null)
+  }
+
   function abrirLogica(preguntaId: string) {
     setLogicaAbiertaPara(logicaAbiertaPara === preguntaId ? null : preguntaId)
     setNuevaLogicaOrigen('')
@@ -319,6 +394,12 @@ export function AdminFormularioEditor() {
       </form>
 
       <h2>Preguntas ({preguntas.length})</h2>
+      {preguntas.length > 1 && (
+        <p className="hint">
+          Arrastrá el ícono <span className="asa-arrastre-ejemplo">⠿</span> para reordenar, o usá las flechas.
+          {guardandoOrden && ' Guardando orden…'}
+        </p>
+      )}
 
       {preguntas.length === 0 && <p>Todavía no hay preguntas. Agregá la primera para empezar.</p>}
 
@@ -326,7 +407,7 @@ export function AdminFormularioEditor() {
         <table>
           <thead>
             <tr>
-              <th>Orden</th>
+              <th></th>
               <th>Código</th>
               <th>Sección</th>
               <th>Pregunta</th>
@@ -336,12 +417,49 @@ export function AdminFormularioEditor() {
             </tr>
           </thead>
           <tbody>
-            {preguntas.map((p) => {
+            {preguntas.map((p, indice) => {
               const reglas = logica.filter((l) => l.question_id === p.id)
               return (
                 <Fragment key={p.id}>
-                  <tr>
-                    <td>{p.orden}</td>
+                  <tr
+                    className={
+                      arrastrandoId === p.id ? 'fila-arrastrando' : sobreId === p.id ? 'fila-drop-objetivo' : undefined
+                    }
+                    onDragOver={(e) => handleDragOver(e, p.id)}
+                    onDragLeave={() => setSobreId((actual) => (actual === p.id ? null : actual))}
+                    onDrop={(e) => handleDrop(e, p.id)}
+                  >
+                    <td className="celda-orden">
+                      <span
+                        className="asa-arrastre"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, p.id)}
+                        onDragEnd={handleDragEnd}
+                        title="Arrastrar para reordenar"
+                      >
+                        ⠿
+                      </span>
+                      <div className="flechas-orden">
+                        <button
+                          type="button"
+                          className="btn-flecha"
+                          onClick={() => moverArriba(p.id)}
+                          disabled={indice === 0}
+                          aria-label="Mover arriba"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-flecha"
+                          onClick={() => moverAbajo(p.id)}
+                          disabled={indice === preguntas.length - 1}
+                          aria-label="Mover abajo"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </td>
                     <td>{p.codigo}</td>
                     <td>{p.seccion ?? '—'}</td>
                     <td>{p.texto_pregunta}</td>
@@ -527,18 +645,11 @@ export function AdminFormularioEditor() {
             </label>
           </div>
 
-          <div className="campo">
-            <label className="campo-titulo" htmlFor="orden-p">
-              Orden
-            </label>
-            <input
-              id="orden-p"
-              type="number"
-              value={preguntaForm.orden}
-              onChange={(e) => setPreguntaForm((f) => ({ ...f, orden: Number(e.target.value) }))}
-            />
-            <span className="hint">Determina en qué posición aparece dentro del formulario.</span>
-          </div>
+          <p className="hint">
+            {preguntaEnEdicion === 'nueva'
+              ? 'Se agrega al final de la lista — después podés arrastrarla a la posición que quieras.'
+              : 'El orden se cambia arrastrando la pregunta en la lista, no desde acá.'}
+          </p>
 
           <div className="acciones-fila">
             <button className="btn-primary" type="submit" disabled={guardandoPregunta}>
