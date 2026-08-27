@@ -58,18 +58,25 @@ export function AdminEnvios() {
   async function handleEliminar(s: Submission) {
     if (!confirm(`¿Eliminar el envío "${s.codigo_seguimiento}"? Esta acción no se puede deshacer.`)) return
     setBorrandoId(s.id)
-    // Se borran primero las respuestas por si la base no tiene ON DELETE
-    // CASCADE desde submission_answers hacia submissions.
-    const { error: answersError } = await supabase.from('submission_answers').delete().eq('submission_id', s.id)
-    if (answersError) {
-      setBorrandoId(null)
-      alert(`No se pudo eliminar: ${answersError.message}`)
-      return
-    }
-    const { error: deleteError } = await supabase.from('submissions').delete().eq('id', s.id)
+    // submission_answers tiene ON DELETE CASCADE hacia submissions, así que
+    // alcanza con borrar el envío — sus respuestas se van solas.
+    const { data: subData, error: deleteError } = await supabase
+      .from('submissions')
+      .delete()
+      .eq('id', s.id)
+      .select('id')
     setBorrandoId(null)
     if (deleteError) {
       alert(`No se pudo eliminar: ${deleteError.message}`)
+      return
+    }
+    // 0 filas sin error = la política de RLS bloqueó el delete en silencio
+    // (Postgres/PostgREST no avisan con un error en ese caso).
+    if ((subData?.length ?? 0) === 0) {
+      alert(
+        'No se eliminó nada: el servidor no dio error, pero tampoco borró filas. ' +
+          'Es un problema de permisos (RLS) — el administrador todavía no tiene permiso para eliminar envíos.',
+      )
       return
     }
     cargar()

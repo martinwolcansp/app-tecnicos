@@ -184,15 +184,20 @@ export function AdminEnvioDetalle() {
     setGuardadoOk(false)
     setError(null)
 
-    const { error: subError } = await supabase
+    // Se encadena .select() para poder distinguir "no había nada que
+    // cambiar" de "la política de RLS bloqueó el update en silencio": sin
+    // .select(), Postgres/PostgREST no avisan con un error cuando un UPDATE
+    // afecta 0 filas por RLS — simplemente responden éxito con 0 filas.
+    const { data: subData, error: subError } = await supabase
       .from('submissions')
       .update({ cliente: cliente.trim() || null, estado })
       .eq('id', submissionId)
+      .select('id')
 
     const resultadosRespuestas = await Promise.all(
       preguntas.map((p) => {
         const respuestaId = respuestaIdPorPregunta.get(p.id)
-        if (!respuestaId) return Promise.resolve({ error: null })
+        if (!respuestaId) return Promise.resolve({ error: null, data: [{ id: respuestaId }] })
         const ed = edicion[p.id]
         const esFoto = p.tipo_campo === 'foto'
         const valor = esFoto ? null : Array.isArray(ed.valor) ? ed.valor.join(', ') : ed.valor
@@ -200,6 +205,7 @@ export function AdminEnvioDetalle() {
           .from('submission_answers')
           .update({ valor, archivo_url: esFoto ? ed.archivo_url : null })
           .eq('id', respuestaId)
+          .select('id')
       }),
     )
 
@@ -207,6 +213,14 @@ export function AdminEnvioDetalle() {
     const errorRespuesta = resultadosRespuestas.find((r) => r.error)?.error
     if (subError || errorRespuesta) {
       setError(subError?.message ?? errorRespuesta?.message ?? 'No se pudo guardar.')
+      return
+    }
+    const respuestasSinAfectar = resultadosRespuestas.some((r) => (r.data?.length ?? 0) === 0)
+    if ((subData?.length ?? 0) === 0 || respuestasSinAfectar) {
+      setError(
+        'No se guardó ningún cambio: el servidor no dio error, pero tampoco modificó filas. ' +
+          'Es un problema de permisos (RLS) — el administrador todavía no tiene permiso para editar envíos.',
+      )
       return
     }
     setGuardadoOk(true)
@@ -218,19 +232,24 @@ export function AdminEnvioDetalle() {
     if (!submission) return
     if (!confirm(`¿Eliminar el envío "${submission.codigo_seguimiento}"? Esta acción no se puede deshacer.`)) return
     setBorrando(true)
-    const { error: answersError } = await supabase
-      .from('submission_answers')
+    // submission_answers tiene ON DELETE CASCADE hacia submissions, así que
+    // alcanza con borrar el envío — sus respuestas se van solas.
+    const { data: subData, error: deleteError } = await supabase
+      .from('submissions')
       .delete()
-      .eq('submission_id', submission.id)
-    if (answersError) {
-      setBorrando(false)
-      alert(`No se pudo eliminar: ${answersError.message}`)
-      return
-    }
-    const { error: deleteError } = await supabase.from('submissions').delete().eq('id', submission.id)
+      .eq('id', submission.id)
+      .select('id')
     setBorrando(false)
     if (deleteError) {
       alert(`No se pudo eliminar: ${deleteError.message}`)
+      return
+    }
+    // Mismo caso que en handleGuardar: 0 filas sin error = RLS lo bloqueó.
+    if ((subData?.length ?? 0) === 0) {
+      alert(
+        'No se eliminó nada: el servidor no dio error, pero tampoco borró filas. ' +
+          'Es un problema de permisos (RLS) — el administrador todavía no tiene permiso para eliminar envíos.',
+      )
       return
     }
     navigate('/admin/envios')
