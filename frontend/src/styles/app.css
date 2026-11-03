@@ -771,3 +771,107 @@ th {
     display: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Voz + interpretación por IA en el wizard (RF-06/07/08, RF-36)
+   --------------------------------------------------------------------------- */
+.campo-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.btn-dictar {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  /* Área de toque cómoda en el celular. */
+  min-height: 34px;
+}
+
+.btn-dictar.escuchando {
+  background: #b00020;
+  border-color: #b00020;
+  color: #fff;
+  animation: dictar-pulso 1.4s ease-in-out infinite;
+}
+
+@keyframes dictar-pulso {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-dictar.escuchando {
+    animation: none;
+  }
+}
+
+.asistencia-voz {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voz-escuchando {
+  font-size: 13px;
+  color: var(--text-h);
+  font-style: italic;
+}
+
+.voz-error {
+  color: #b00020;
+}
+
+.ia-interpretando::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+  animation: dictar-pulso 1s ease-in-out infinite;
+}
+
+.sugerencia-ia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-bg);
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.sugerencia-etiqueta {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sugerencia-texto {
+  white-space: pre-wrap;
+}
+
+.sugerencia-acciones {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}

@@ -1,13 +1,26 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../lib/AuthContext'
 import { generateId } from '../../lib/uuid'
 import { generarReporteTexto } from '../../lib/reporteTexto'
+import { useDictado } from '../../lib/dictado'
+import { coincidenciaLocal, interpretarRespuesta } from '../../lib/interpretarIA'
 import { ReporteImpresion } from '../../components/ReporteImpresion'
-import type { LogicaCondicional, Pregunta } from '../../lib/types'
+import type { LogicaCondicional, Pregunta, TipoCampo } from '../../lib/types'
 
 type Respuestas = Record<string, string | string[]>
+
+// Estado de la interpretación por IA (RF-36) de una pregunta. `base` es el
+// texto que se mandó a interpretar: si el técnico lo cambia mientras tanto,
+// la respuesta que llegue queda vieja y se descarta.
+type Sugerencia =
+  | { estado: 'interpretando'; base: string }
+  | { estado: 'lista'; base: string; valor: string | string[] }
+  | { estado: 'sin_resultado'; base: string; mensaje: string }
+
+const TIPOS_TEXTO: TipoCampo[] = ['texto_corto', 'texto_largo', 'telefono', 'email']
+const TIPOS_OPCIONES: TipoCampo[] = ['si_no', 'seleccion_unica', 'seleccion_multiple']
 
 function generarCodigoSeguimiento(): string {
   const fecha = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -15,21 +28,39 @@ function generarCodigoSeguimiento(): string {
   return `ST-${fecha}-${azar}`
 }
 
+function opcionesDe(p: Pregunta): string[] {
+  return p.tipo_campo === 'si_no' ? ['Sí', 'No'] : (p.opciones ?? [])
+}
+
+function comoTexto(v: string | string[]): string {
+  return Array.isArray(v) ? v.join(', ') : v
+}
+
 /**
- * v1 del wizard (RF-19 a RF-21 en su forma más simple): renderiza las
- * preguntas de form_questions en orden, respetando la ramificación de
- * form_logic, y crea submission + submission_answers al enviar.
+ * Wizard del técnico: renderiza las preguntas de form_questions en orden,
+ * respetando la ramificación de form_logic, y crea submission +
+ * submission_answers al enviar.
  *
- * A propósito NO incluye todavía: voz (RF-06/07/08), interpretación por IA
- * (RF-36/37/38, ver supabase/functions/ping-ia/ para la PoC de eso), ni modo
- * offline (Etapa 5). Es la base funcional sobre la que se suman esas capas.
+ * Voz (RF-06/07/08): cada pregunta (salvo foto) tiene un botón "Dictar".
+ * Interpretación por IA (RF-36), en segundo plano y sin bloquear:
+ *  - Textos: lo dictado se escribe en el campo tal cual, y la IA propone una
+ *    versión corregida que el técnico puede usar o descartar.
+ *  - Opciones, Sí/No, número, fecha, teléfono, email: la IA propone el valor
+ *    ("¿Quisiste decir: Cámaras?") y el técnico lo confirma con un toque. La
+ *    IA nunca elige sola una opción, así que nunca decide sola qué rama del
+ *    formulario sigue (form_logic sigue mandando).
+ *  - Si la IA falla, tarda o no hay señal, el técnico sigue con lo que
+ *    dictó/tipeó y el envío nunca se bloquea (RF-38).
+ * Se guarda lo dictado (valor_dictado), lo propuesto (valor_ia) y si se usó
+ * (ia_aceptada), además del valor final.
+ *
+ * Todavía NO incluye: resumen final por IA (RF-37) ni modo offline (Etapa 5).
  *
  * `modoPrueba`: se usa cuando el administrador abre "Probar formulario"
- * desde el editor (RF interno, no numerado). Recorre las mismas preguntas y
- * respeta la misma lógica condicional que vería un técnico real, pero al
- * enviar NO crea submission/submission_answers en la base — solo confirma
- * que el recorrido llegó al final. Así se puede probar la ramificación de un
- * formulario sin ensuciar la lista de Envíos con datos falsos.
+ * desde el editor. Recorre las mismas preguntas y respeta la misma lógica
+ * condicional que vería un técnico real, pero al enviar NO crea
+ * submission/submission_answers en la base — solo confirma que el recorrido
+ * llegó al final.
  */
 export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } = {}) {
   const { formId } = useParams<{ formId: string }>()
@@ -51,17 +82,27 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
   // formulario — cambiar una respuesta de estas a mitad de carga puede
   // alterar qué preguntas de la rama siguen visibles (RF-13/RF-14). El
   // técnico puede desbloquear una puntual con "Cambiar respuesta" si se
-  // equivocó. Los campos de texto libre no se bloquean: no gatillan
-  // ramificación en este formulario y bloquearlos en cada tecla sería
-  // incómodo.
+  // equivocó. Los campos de texto libre no se bloquean.
   const [confirmadas, setConfirmadas] = useState<Set<string>>(new Set())
   const [subiendoArchivo, setSubiendoArchivo] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [envioError, setEnvioError] = useState<string | null>(null)
   const [codigoSeguimiento, setCodigoSeguimiento] = useState<string | null>(null)
 
-  // Prefijo estable para organizar las fotos subidas durante esta carga,
-  // aunque la submission todavía no exista (se crea recién al enviar).
+  // Voz + IA
+  const dictado = useDictado()
+  const [dictados, setDictados] = useState<Record<string, string>>({})
+  const [sugerencias, setSugerencias] = useState<Record<string, Sugerencia>>({})
+  const [valorIA, setValorIA] = useState<Record<string, string>>({})
+  const [iaAceptada, setIaAceptada] = useState<Record<string, boolean>>({})
+
+  // El dictado termina de forma asíncrona (cuando el navegador cierra el
+  // micrófono): esta referencia le da acceso a las respuestas actuales.
+  const respuestasRef = useRef<Respuestas>(respuestas)
+  respuestasRef.current = respuestas
+
+  // Id de esta carga: prefijo de las fotos subidas y client_uuid del envío
+  // (clave única que evita duplicados si un envío se reintenta — Etapa 5).
   const wizardId = useMemo(() => generateId(), [])
 
   useEffect(() => {
@@ -155,6 +196,22 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
     setRespuestas((prev) => ({ ...prev, [questionId]: valor }))
   }
 
+  function quitarDe<T>(setter: (fn: (prev: Record<string, T>) => Record<string, T>) => void, ids: string[]) {
+    setter((prev) => {
+      if (!ids.some((id) => id in prev)) return prev
+      const siguiente = { ...prev }
+      for (const id of ids) delete siguiente[id]
+      return siguiente
+    })
+  }
+
+  // Cambio manual en un campo de texto/número/fecha: si había una sugerencia
+  // de la IA para el texto anterior, deja de tener sentido.
+  function cambiarManual(questionId: string, valor: string) {
+    setRespuesta(questionId, valor)
+    quitarDe(setSugerencias, [questionId])
+  }
+
   function toggleMultiple(questionId: string, opcion: string, marcado: boolean) {
     setRespuestas((prev) => {
       const actual = Array.isArray(prev[questionId]) ? (prev[questionId] as string[]) : []
@@ -168,17 +225,18 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
   function seleccionarUnica(pregunta: Pregunta, valor: string) {
     setRespuesta(pregunta.id, valor)
     setConfirmadas((prev) => new Set(prev).add(pregunta.id))
+    quitarDe(setSugerencias, [pregunta.id])
   }
 
   // seleccion_multiple: puede necesitar tildar varias opciones, así que acá
   // el bloqueo es un paso aparte ("Confirmar selección"), no automático.
   function confirmarMultiple(preguntaId: string) {
     setConfirmadas((prev) => new Set(prev).add(preguntaId))
+    quitarDe(setSugerencias, [preguntaId])
   }
 
   // Toda pregunta que dependa (directa o indirectamente) de la respuesta de
-  // `preguntaId` para decidir si se muestra u oculta — ej. si se cambia "3"
-  // (Alarmas sí/no), esto trae "4", y de "4" a su vez trae "4.1", "4.1.1", etc.
+  // `preguntaId` para decidir si se muestra u oculta.
   function idsDependientes(preguntaId: string): string[] {
     const directos = logica.filter((l) => l.pregunta_origen_id === preguntaId).map((l) => l.question_id)
     const todos = new Set(directos)
@@ -192,10 +250,7 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
     const dependientes = idsDependientes(preguntaId)
 
     // Al cambiar esta respuesta, todo lo que se había cargado más adelante
-    // en base al valor anterior deja de tener sentido — se borra en vez de
-    // dejarlo "colgado" (aunque no se envía si la pregunta queda oculta, es
-    // más claro para el técnico ver el formulario vacío desde ahí y no
-    // arrastrar respuestas de una rama que ya no eligió).
+    // en base al valor anterior deja de tener sentido — se borra.
     setRespuestas((prev) => {
       const siguiente = { ...prev }
       for (const id of dependientes) delete siguiente[id]
@@ -208,12 +263,199 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
       return siguiente
     })
 
-    // Vuelve a llevar la vista hasta la pregunta que se está por cambiar,
-    // ya que puede haber quedado varias pantallas más arriba.
+    const afectados = [preguntaId, ...dependientes]
+    quitarDe(setDictados, afectados)
+    quitarDe(setSugerencias, afectados)
+    quitarDe(setValorIA, afectados)
+    quitarDe(setIaAceptada, afectados)
+
     window.requestAnimationFrame(() => {
       document.getElementById(`pregunta-${preguntaId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
   }
+
+  // ---------------------------------------------------------------------------
+  // Voz + IA (RF-06/07/08 y RF-36)
+  // ---------------------------------------------------------------------------
+
+  function lanzarInterpretacion(p: Pregunta, base: string) {
+    const esTexto = TIPOS_TEXTO.includes(p.tipo_campo)
+    setSugerencias((prev) => ({ ...prev, [p.id]: { estado: 'interpretando', base } }))
+
+    interpretarRespuesta(p.id, base, p.tipo_campo).then((r) => {
+      setSugerencias((prev) => {
+        const actual = prev[p.id]
+        if (!actual || actual.base !== base) return prev // quedó vieja: el técnico cambió algo
+        const siguiente = { ...prev }
+
+        if (r.estado === 'ok') {
+          // Texto que ya estaba bien: no hace falta sugerir nada.
+          if (esTexto && typeof r.valor === 'string' && r.valor.trim() === base.trim()) {
+            delete siguiente[p.id]
+          } else {
+            siguiente[p.id] = { estado: 'lista', base, valor: r.valor }
+          }
+        } else if (esTexto) {
+          // En textos, si la IA no responde se queda lo dictado y listo (RF-38).
+          delete siguiente[p.id]
+        } else {
+          const motivo = r.estado === 'no_disponible' ? `${r.motivo} ` : 'No se pudo interpretar lo dictado. '
+          siguiente[p.id] = { estado: 'sin_resultado', base, mensaje: `${motivo}Completalo a mano.` }
+        }
+        return siguiente
+      })
+    })
+  }
+
+  function alTerminarDictado(p: Pregunta, texto: string) {
+    // Respuesta nueva: lo que la IA haya propuesto antes ya no corresponde.
+    quitarDe(setValorIA, [p.id])
+    quitarDe(setIaAceptada, [p.id])
+
+    if (TIPOS_TEXTO.includes(p.tipo_campo)) {
+      // Textos libres: lo dictado se suma a lo que ya había. Teléfono y email
+      // se reemplazan (no tiene sentido concatenar dos teléfonos).
+      const anterior = respuestasRef.current[p.id]
+      const sumar =
+        (p.tipo_campo === 'texto_corto' || p.tipo_campo === 'texto_largo') &&
+        typeof anterior === 'string' &&
+        anterior.trim() !== ''
+      const nuevo = sumar ? `${(anterior as string).trim()} ${texto}` : texto
+
+      setDictados((prev) => ({
+        ...prev,
+        [p.id]: sumar && prev[p.id] ? `${prev[p.id]} ${texto}` : texto,
+      }))
+      setRespuesta(p.id, nuevo)
+      lanzarInterpretacion(p, nuevo)
+      return
+    }
+
+    setDictados((prev) => ({ ...prev, [p.id]: texto }))
+
+    if (TIPOS_OPCIONES.includes(p.tipo_campo)) {
+      const local = coincidenciaLocal(opcionesDe(p), texto)
+      if (local) {
+        setSugerencias((prev) => ({
+          ...prev,
+          [p.id]: { estado: 'lista', base: texto, valor: p.tipo_campo === 'seleccion_multiple' ? [local] : local },
+        }))
+        return
+      }
+    }
+
+    lanzarInterpretacion(p, texto)
+  }
+
+  function aceptarSugerencia(p: Pregunta) {
+    const s = sugerencias[p.id]
+    if (!s || s.estado !== 'lista') return
+    const v = s.valor
+
+    if (p.tipo_campo === 'si_no' || p.tipo_campo === 'seleccion_unica') {
+      seleccionarUnica(p, comoTexto(v))
+    } else if (p.tipo_campo === 'seleccion_multiple') {
+      setRespuesta(p.id, Array.isArray(v) ? v : [v])
+      confirmarMultiple(p.id)
+    } else {
+      setRespuesta(p.id, comoTexto(v))
+    }
+
+    setValorIA((prev) => ({ ...prev, [p.id]: comoTexto(v) }))
+    setIaAceptada((prev) => ({ ...prev, [p.id]: true }))
+    quitarDe(setSugerencias, [p.id])
+  }
+
+  function descartarSugerencia(p: Pregunta) {
+    const s = sugerencias[p.id]
+    if (s?.estado === 'lista') {
+      setValorIA((prev) => ({ ...prev, [p.id]: comoTexto(s.valor) }))
+      setIaAceptada((prev) => ({ ...prev, [p.id]: false }))
+    }
+    quitarDe(setSugerencias, [p.id])
+  }
+
+  function renderBotonDictar(p: Pregunta) {
+    if (p.tipo_campo === 'foto' || dictado.motivoNoDisponible) return null
+    if (TIPOS_OPCIONES.includes(p.tipo_campo) && confirmadas.has(p.id)) return null
+
+    const escuchando = dictado.activoId === p.id
+    return (
+      <button
+        type="button"
+        className={escuchando ? 'btn-dictar escuchando' : 'btn-dictar'}
+        aria-label={escuchando ? 'Detener dictado' : `Dictar respuesta: ${p.texto_pregunta}`}
+        onClick={() =>
+          escuchando
+            ? dictado.detener()
+            : dictado.iniciar(p.id, {
+                continuo: p.tipo_campo === 'texto_largo',
+                alTerminar: (texto) => alTerminarDictado(p, texto),
+              })
+        }
+      >
+        {escuchando ? '■ Detener' : '🎤 Dictar'}
+      </button>
+    )
+  }
+
+  function renderAsistenciaVoz(p: Pregunta) {
+    const escuchando = dictado.activoId === p.id
+    const errorVoz = dictado.error?.id === p.id ? dictado.error.mensaje : null
+    const s = sugerencias[p.id]
+    const esTexto = TIPOS_TEXTO.includes(p.tipo_campo)
+    const esOpciones = TIPOS_OPCIONES.includes(p.tipo_campo)
+    const dicho = dictados[p.id]
+
+    if (!escuchando && !errorVoz && !s && (esTexto || !dicho)) return null
+
+    return (
+      <div className="asistencia-voz">
+        {escuchando && (
+          <div className="voz-escuchando">
+            Escuchando…{dictado.parcial && <> «{dictado.parcial}»</>}
+          </div>
+        )}
+        {errorVoz && <div className="hint voz-error">{errorVoz}</div>}
+        {!escuchando && !esTexto && dicho && <div className="hint">Dictado: «{dicho}»</div>}
+
+        {s?.estado === 'interpretando' && <div className="hint ia-interpretando">Interpretando…</div>}
+
+        {s?.estado === 'sin_resultado' && <div className="hint">{s.mensaje}</div>}
+
+        {s?.estado === 'lista' && (
+          <div className="sugerencia-ia">
+            {esOpciones ? (
+              <span>
+                ¿Quisiste decir: <strong>{comoTexto(s.valor)}</strong>?
+              </span>
+            ) : esTexto && p.tipo_campo !== 'telefono' && p.tipo_campo !== 'email' ? (
+              <>
+                <span className="sugerencia-etiqueta">Corrección sugerida:</span>
+                <span className="sugerencia-texto">{comoTexto(s.valor)}</span>
+              </>
+            ) : (
+              <span>
+                Valor interpretado: <strong>{comoTexto(s.valor)}</strong>
+              </span>
+            )}
+            <div className="sugerencia-acciones">
+              <button type="button" className="btn-secondary btn-sm" onClick={() => aceptarSugerencia(p)}>
+                {esOpciones ? 'Confirmar' : 'Usar'}
+              </button>
+              <button type="button" className="btn-link" onClick={() => descartarSugerencia(p)}>
+                Descartar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fotos, validación y envío
+  // ---------------------------------------------------------------------------
 
   async function handleFoto(pregunta: Pregunta, file: File | null) {
     if (!file) return
@@ -261,6 +503,8 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
       return
     }
 
+    dictado.detener()
+
     if (modoPrueba) {
       setCodigoSeguimiento('PRUEBA')
       return
@@ -280,6 +524,11 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
         enviado_por: profile.id,
         cliente: cliente.trim() || null,
         codigo_seguimiento: codigo,
+        client_uuid: wizardId,
+        // Hoy toda la interpretación (RF-36) ocurre durante la carga, así que
+        // el envío llega ya completo. Cuando existan RF-37 (resumen) y el modo
+        // offline, se va a mandar 'recibido' y el servidor lo hará avanzar.
+        processing_status: 'completo',
       })
       .select('id')
       .single()
@@ -295,11 +544,18 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
       .map((p) => {
         const val = respuestas[p.id]
         const esFoto = p.tipo_campo === 'foto'
+        // Una sugerencia que quedó en pantalla sin usar cuenta como no aceptada.
+        // Si todavía estaba "interpretando", se ignora: el envío no espera a la IA (RF-38).
+        const pendiente = sugerencias[p.id]
+        const sugerida = pendiente?.estado === 'lista' ? comoTexto(pendiente.valor) : null
         return {
           submission_id: submission.id,
           question_id: p.id,
           valor: esFoto ? null : Array.isArray(val) ? val.join(', ') : val,
           archivo_url: esFoto ? (val as string) : null,
+          valor_dictado: dictados[p.id] ?? null,
+          valor_ia: valorIA[p.id] ?? sugerida,
+          ia_aceptada: iaAceptada[p.id] ?? (sugerida != null ? false : null),
         }
       })
 
@@ -329,14 +585,14 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
           <input
             type={p.tipo_campo === 'email' ? 'email' : p.tipo_campo === 'telefono' ? 'tel' : 'text'}
             value={(valor as string) ?? ''}
-            onChange={(e) => setRespuesta(p.id, e.target.value)}
+            onChange={(e) => cambiarManual(p.id, e.target.value)}
           />
         )
       case 'texto_largo':
         return (
           <textarea
             value={(valor as string) ?? ''}
-            onChange={(e) => setRespuesta(p.id, e.target.value)}
+            onChange={(e) => cambiarManual(p.id, e.target.value)}
           />
         )
       case 'numero':
@@ -344,7 +600,7 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
           <input
             type="number"
             value={(valor as string) ?? ''}
-            onChange={(e) => setRespuesta(p.id, e.target.value)}
+            onChange={(e) => cambiarManual(p.id, e.target.value)}
           />
         )
       case 'fecha':
@@ -352,7 +608,7 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
           <input
             type="date"
             value={(valor as string) ?? ''}
-            onChange={(e) => setRespuesta(p.id, e.target.value)}
+            onChange={(e) => cambiarManual(p.id, e.target.value)}
           />
         )
       case 'si_no': {
@@ -529,6 +785,8 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
         </div>
       )}
 
+      {dictado.motivoNoDisponible && <div className="alert alert-info">{dictado.motivoNoDisponible}</div>}
+
       <div className="campo">
         <span className="campo-titulo">Cliente (opcional)</span>
         <input type="text" value={cliente} onChange={(e) => setCliente(e.target.value)} />
@@ -536,11 +794,15 @@ export function TecnicoWizard({ modoPrueba = false }: { modoPrueba?: boolean } =
 
       {preguntasVisibles.map((p) => (
         <div key={p.id} id={`pregunta-${p.id}`} className="campo">
-          <span className="campo-titulo">
-            {p.texto_pregunta}
-            {p.obligatorio && <span className="requerido"> *</span>}
-          </span>
+          <div className="campo-encabezado">
+            <span className="campo-titulo">
+              {p.texto_pregunta}
+              {p.obligatorio && <span className="requerido"> *</span>}
+            </span>
+            {renderBotonDictar(p)}
+          </div>
           {renderCampo(p)}
+          {renderAsistenciaVoz(p)}
         </div>
       ))}
 

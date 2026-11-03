@@ -59,6 +59,8 @@ export type Submission = {
   estado: SubmissionEstado
   codigo_seguimiento: string
   created_at: string
+  client_uuid?: string | null
+  processing_status?: 'recibido' | 'enriqueciendo' | 'resumiendo' | 'completo'
 }
 
 export type SubmissionAnswer = {
@@ -67,4 +69,7 @@ export type SubmissionAnswer = {
   question_id: string
   valor: string | null
   archivo_url: string | null
+  valor_dictado?: string | null
+  valor_ia?: string | null
+  ia_aceptada?: boolean | null
 }
