@@ -67,6 +67,27 @@ function mensajeDeError(codigo: string): string {
   }
 }
 
+function normalizar(s: string): string {
+  return s.toLowerCase().replace(/[.,;:!¡?¿]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Agrega `nuevo` a `acumulado` evitando duplicados:
+ *  - si `nuevo` ya contiene todo lo anterior ("hola cómo" después de "hola"),
+ *    reemplaza;
+ *  - si `nuevo` ya está al final de lo acumulado, lo ignora;
+ *  - si no, lo agrega con un espacio.
+ */
+function unirSinRepetir(acumulado: string, nuevo: string): string {
+  if (!nuevo) return acumulado
+  if (!acumulado) return nuevo
+  const a = normalizar(acumulado)
+  const n = normalizar(nuevo)
+  if (n.startsWith(a)) return nuevo
+  if (a.endsWith(n)) return acumulado
+  return `${acumulado} ${nuevo}`
+}
+
 export type OpcionesDictado = {
   /** true para textos largos: sigue escuchando hasta que el técnico toca "Detener". */
   continuo: boolean
@@ -119,14 +140,24 @@ export function useDictado() {
 
     let textoFinal = ''
 
+    // El texto se rearma desde cero en cada evento, recorriendo TODOS los
+    // resultados (no solo desde resultIndex). Motivo: Chrome en Android, en
+    // modo continuo, vuelve a emitir resultados que ya había dado y además
+    // cada resultado final suele repetir todo lo anterior ("hola", "hola
+    // cómo", "hola cómo estás"). Sumarlos tal cual duplicaba el texto en el
+    // campo. `unirSinRepetir` descarta esas repeticiones.
     rec.onresult = (e) => {
+      let finales = ''
       let provisorio = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      for (let i = 0; i < e.results.length; i++) {
         const r = e.results[i]
-        if (r.isFinal) textoFinal += (textoFinal ? ' ' : '') + r[0].transcript.trim()
-        else provisorio += r[0].transcript
+        const t = r[0].transcript.trim()
+        if (!t) continue
+        if (r.isFinal) finales = unirSinRepetir(finales, t)
+        else provisorio = unirSinRepetir(provisorio, t)
       }
-      setParcial([textoFinal, provisorio.trim()].filter(Boolean).join(' '))
+      textoFinal = finales
+      setParcial(unirSinRepetir(finales, provisorio))
     }
 
     rec.onerror = (e) => {
