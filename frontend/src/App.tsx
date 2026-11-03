@@ -8,6 +8,7 @@ import { AdminFormularioEditor } from './pages/admin/AdminFormularioEditor'
 import { AdminEnvios } from './pages/admin/AdminEnvios'
 import { AdminEnvioDetalle } from './pages/admin/AdminEnvioDetalle'
 import { AdminUsuarios } from './pages/admin/AdminUsuarios'
+import { AdminConsumoIA } from './pages/admin/AdminConsumoIA'
 import { TecnicoLayout } from './pages/tecnico/TecnicoLayout'
 import { TecnicoFormularios } from './pages/tecnico/TecnicoFormularios'
 import { TecnicoWizard } from './pages/tecnico/TecnicoWizard'
@@ -47,6 +48,7 @@ function App() {
             <Route path="envios" element={<AdminEnvios />} />
             <Route path="envios/:submissionId" element={<AdminEnvioDetalle />} />
             <Route path="usuarios" element={<AdminUsuarios />} />
+            <Route path="consumo-ia" element={<AdminConsumoIA />} />
           </Route>
 
           <Route

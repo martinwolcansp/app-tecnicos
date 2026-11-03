@@ -28,6 +28,9 @@ export function AdminLayout() {
           <NavLink to="/admin/usuarios" className={({ isActive }) => (isActive ? 'active' : '')}>
             Usuarios
           </NavLink>
+          <NavLink to="/admin/consumo-ia" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Consumo IA
+          </NavLink>
         </nav>
       </aside>
 

@@ -98,7 +98,7 @@ export function AdminEnvioDetalle() {
           supabase.from('profiles').select('nombre, email').eq('id', sub.enviado_por).single(),
           supabase
             .from('submission_answers')
-            .select('id, submission_id, question_id, valor, archivo_url')
+            .select('id, submission_id, question_id, valor, archivo_url, valor_dictado, valor_ia, ia_aceptada')
             .eq('submission_id', sub.id),
         ])
 
@@ -142,6 +142,35 @@ export function AdminEnvioDetalle() {
   }
 
   useEffect(cargarTodo, [submissionId])
+
+  const respuestaPorPregunta = useMemo(
+    () => new Map(respuestasOriginales.map((r) => [r.question_id, r])),
+    [respuestasOriginales],
+  )
+
+  // Rastro de voz + IA (RF-36) de una respuesta: qué dictó el técnico, qué
+  // propuso la IA y si lo usó. Es solo lectura: sirve para revisar durante el
+  // piloto qué tan bien interpreta la IA.
+  function renderRastroVozIA(p: Pregunta) {
+    const r = respuestaPorPregunta.get(p.id)
+    if (!r || (!r.valor_dictado && !r.valor_ia)) return null
+    return (
+      <div className="rastro-ia">
+        {r.valor_dictado && (
+          <div>
+            <span className="rastro-ia-etiqueta">🎤 Dictado:</span> «{r.valor_dictado}»
+          </div>
+        )}
+        {r.valor_ia && (
+          <div>
+            <span className="rastro-ia-etiqueta">IA propuso:</span> {r.valor_ia}{' '}
+            {r.ia_aceptada === true && <span className="rastro-ia-estado ok">✓ usada</span>}
+            {r.ia_aceptada === false && <span className="rastro-ia-estado no">✗ no usada</span>}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const respuestaIdPorPregunta = useMemo(
     () => new Map(respuestasOriginales.map((r) => [r.question_id, r.id])),
@@ -402,7 +431,10 @@ export function AdminEnvioDetalle() {
                 <td>{p.codigo}</td>
                 <td>{p.texto_pregunta}</td>
                 <td className="celda-nowrap">{TIPOS_CAMPO_LABEL[p.tipo_campo] ?? p.tipo_campo}</td>
-                <td>{renderCampoEditable(p)}</td>
+                <td>
+                  {renderCampoEditable(p)}
+                  {renderRastroVozIA(p)}
+                </td>
               </tr>
             ))}
           </tbody>

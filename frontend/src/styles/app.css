@@ -875,3 +875,87 @@ th {
   align-items: center;
   gap: 14px;
 }
+
+/* ---------------------------------------------------------------------------
+   Panel: rastro de voz + IA en el detalle de envío, y pantalla Consumo IA
+   --------------------------------------------------------------------------- */
+.rastro-ia {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--accent-border);
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.rastro-ia-etiqueta {
+  font-weight: 600;
+}
+
+.rastro-ia-estado {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rastro-ia-estado.ok {
+  color: #1f9d63;
+}
+
+.rastro-ia-estado.no {
+  color: #b00020;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.kpi-etiqueta {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text);
+}
+
+.kpi-valor {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-detalle {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.barra-presupuesto {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.barra-presupuesto-relleno {
+  height: 100%;
+  background: var(--accent);
+}
+
+.barra-presupuesto-relleno.alto {
+  background: #b00020;
+}
